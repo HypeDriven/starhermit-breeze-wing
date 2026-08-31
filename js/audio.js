@@ -3,10 +3,29 @@
  * Original procedural WebAudio: short transients tied to logical events,
  * layered impacts, quiet ambience, adaptive music stems. Independent buses:
  * music / effects / ambience / voice(ui cues). Seeded variant selection so
- * recorded sessions sound consistent. No assets, no network.
+ * recorded sessions sound consistent. Authored one-shots (sfx/*.opus, see
+ * sfx/manifest.json) are preferred per event once lazy-loaded after unlock;
+ * the procedural synthesis below remains the fallback while clips load or
+ * when a clip is unavailable.
  */
 
 import { createRng } from './rules.js';
+
+const AUTHORED_SFX_BY_EVENT = Object.freeze({
+  flap: 'flap-whoosh',
+  start: 'takeoff-rise',
+  pass: 'gate-pass-chime',
+  centered: 'centered-sparkle',
+  'terminal:cleared': 'clear-fanfare',
+  'terminal:time-up': 'time-up-fanfare',
+  'terminal:crash': 'crash-thud',
+  invalid: 'invalid-buzz',
+  ui: 'ui-tick',
+  countdown: 'countdown-beep',
+  'countdown:final': 'countdown-go',
+  achievement: 'achievement-sparkle',
+  undo: 'undo-rewind',
+});
 
 export class AudioEngine {
   constructor() {
@@ -20,6 +39,11 @@ export class AudioEngine {
     this._ambNodes = null;
     this._captionSink = null; // (text) => void — accessibility text cues
     this._lastCaption = 0;
+    this._sfxManifest = null; // Promise — fetch of sfx/manifest.json, started at unlock
+    this._sfxMap = new Map(Object.entries(AUTHORED_SFX_BY_EVENT)); // eventKey -> clipName
+    this._sfxBuffers = new Map(); // clipName -> AudioBuffer
+    this._sfxPending = new Map(); // clipName -> in-flight fetch/decode Promise
+    this._sfxFailed = new Set();  // clipName that failed to load (keep synth fallback)
   }
 
   /** Must be called from a user gesture. Safe to call repeatedly. */
@@ -40,9 +64,74 @@ export class AudioEngine {
         }
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
+      this._ensureSfxManifest();
     } catch {
       this.enabled = false;
     }
+  }
+
+  /* ------------------- authored one-shot samples ---------------------- */
+
+  /** Start loading the sample manifest. Only runs after the gesture unlock. */
+  _ensureSfxManifest() {
+    if (this._sfxManifest || !this.ctx || typeof fetch !== 'function') return;
+    this._sfxManifest = fetch('sfx/manifest.json')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => {
+        const map = new Map(Object.entries(AUTHORED_SFX_BY_EVENT));
+        if (Array.isArray(list)) {
+          for (const e of list) {
+            if (e && typeof e.name === 'string' && typeof e.event === 'string') {
+              map.set(e.event, e.name);
+            }
+          }
+        }
+        this._sfxMap = map;
+        return map;
+      })
+      .catch(() => { this._sfxMap = new Map(Object.entries(AUTHORED_SFX_BY_EVENT)); });
+  }
+
+  /** Runtime event map key: existing event names, with terminal/countdown split by detail. */
+  _sfxKeyFor(type, detail) {
+    if (type === 'terminal') {
+      if (detail.reason === 'cleared') return 'terminal:cleared';
+      if (detail.reason === 'time-up') return 'terminal:time-up';
+      return 'terminal:crash';
+    }
+    if (type === 'countdown') return detail.final ? 'countdown:final' : 'countdown';
+    return type;
+  }
+
+  /**
+   * Prefer the mapped authored sample for an event. Returns true when a
+   * decoded clip actually played; otherwise kicks off the lazy load and
+   * returns false so the caller falls back to procedural synthesis.
+   */
+  _trySample(type, detail) {
+    if (!this._sfxMap || !this.ctx) return false;
+    const name = this._sfxMap.get(this._sfxKeyFor(type, detail));
+    if (!name) return false;
+    const buf = this._sfxBuffers.get(name);
+    if (!buf) { this._loadSample(name); return false; }
+    try {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.buses.effects);
+      src.start();
+      return true;
+    } catch { return false; }
+  }
+
+  _loadSample(name) {
+    if (this._sfxFailed.has(name) || this._sfxPending.has(name) || !this.ctx) return;
+    const p = fetch(`sfx/${name}.opus`)
+      .then((r) => { if (!r.ok) throw new Error(`http-${r.status}`); return r.arrayBuffer(); })
+      .then((ab) => this.ctx.decodeAudioData(ab))
+      .then((buf) => { this._sfxBuffers.set(name, buf); })
+      .catch(() => { this._sfxFailed.add(name); })
+      .finally(() => { this._sfxPending.delete(name); });
+    this._sfxPending.set(name, p);
   }
 
   setCaptionSink(fn) { this._captionSink = fn; }
@@ -117,6 +206,8 @@ export class AudioEngine {
   /** Map logical rules/UI events to sound. Event hierarchy respected. */
   event(type, detail = {}) {
     if (!this.ctx || this.muted || !this.enabled) { this._captionFor(type, detail); return; }
+    // Prefer the authored clip; procedural synthesis covers loading/failure.
+    if (this._trySample(type, detail)) { this._captionFor(type, detail); return; }
     const v = 0.94 + this._rng.next() * 0.12; // seeded pitch variant
     switch (type) {
       case 'flap':
@@ -169,7 +260,8 @@ export class AudioEngine {
   _captionFor(type, detail) {
     const map = {
       flap: 'whoosh', pass: 'chime: gate passed', centered: 'bright chime: centered pass',
-      terminal: detail.reason === 'cleared' ? 'fanfare: stage clear' : 'thud: flight ended',
+      terminal: detail.reason === 'crash' ? 'thud: flight ended'
+        : detail.reason === 'time-up' ? 'jingle: time up' : 'fanfare: stage clear',
       invalid: 'low buzz: action unavailable', countdown: detail.final ? 'beep: go' : 'beep',
       achievement: 'sparkle: achievement unlocked', start: 'rising tone: takeoff', undo: 'soft rewind',
     };

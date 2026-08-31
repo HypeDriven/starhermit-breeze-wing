@@ -1,0 +1,80 @@
+[
+  {
+    "name": "flap-whoosh",
+    "seconds": 1,
+    "prompt": "A single soft wing flap whoosh: a quick airy swoosh of feathers cutting through wind, light and gentle, storybook tone.",
+    "event": "flap"
+  },
+  {
+    "name": "takeoff-rise",
+    "seconds": 2,
+    "prompt": "A rising whoosh of wind lifting upward, a bright ascending airy sweep ending in a soft chime, cheerful takeoff.",
+    "event": "start"
+  },
+  {
+    "name": "gate-pass-chime",
+    "seconds": 1,
+    "prompt": "A bright two-note crystalline chime ding, a pleasant mallet bell tone with a short shimmer, rewarding and light.",
+    "event": "pass"
+  },
+  {
+    "name": "centered-sparkle",
+    "seconds": 1,
+    "prompt": "A sparkling glockenspiel twinkle, a quick ascending glitter of tiny bell tones, magical and precise.",
+    "event": "centered"
+  },
+  {
+    "name": "clear-fanfare",
+    "seconds": 3,
+    "prompt": "A short triumphant fanfare of bright brass and bells rising through four happy notes, a celebratory stage-clear flourish.",
+    "event": "terminal:cleared"
+  },
+  {
+    "name": "time-up-fanfare",
+    "seconds": 2,
+    "prompt": "A gentle upbeat completion jingle, warm bells resolving upward, a friendly time-is-up round-over motif.",
+    "event": "terminal:time-up"
+  },
+  {
+    "name": "crash-thud",
+    "seconds": 2,
+    "prompt": "A soft low thud of a small bird tumbling into the sea with a muffled splash and a descending disappointed wobble, not harsh.",
+    "event": "terminal:crash"
+  },
+  {
+    "name": "invalid-buzz",
+    "seconds": 1,
+    "prompt": "A short low muted buzz, a dull wooden not-allowed bonk, soft and brief interface denial sound.",
+    "event": "invalid"
+  },
+  {
+    "name": "ui-tick",
+    "seconds": 1,
+    "prompt": "A tiny clean wooden UI click tick, a short soft percussive tap, minimal menu selection sound.",
+    "event": "ui"
+  },
+  {
+    "name": "countdown-beep",
+    "seconds": 1,
+    "prompt": "A single clear electronic countdown beep, mid-pitch, short and round, a friendly timer tick.",
+    "event": "countdown"
+  },
+  {
+    "name": "countdown-go",
+    "seconds": 1,
+    "prompt": "A higher bright go beep with a slight sparkle tail, an energetic start signal chime.",
+    "event": "countdown:final"
+  },
+  {
+    "name": "achievement-sparkle",
+    "seconds": 2,
+    "prompt": "A shimmering achievement-unlock arpeggio of tiny bells rising in three steps with a glittering tail, a magical reward.",
+    "event": "achievement"
+  },
+  {
+    "name": "undo-rewind",
+    "seconds": 1,
+    "prompt": "A short downward rewind swoop, a tape-rewind-like descending whirr, soft and quick.",
+    "event": "undo"
+  }
+]
