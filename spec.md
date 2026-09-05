@@ -230,6 +230,8 @@ Success targets for the first public test: median first-play time under 20 secon
 
 ## 9. Testing and acceptance criteria
 
+An automated end-to-end playthrough through the real on-screen UI lives at `tests/e2e.mjs` (`npm run test:e2e`): it starts its own static server, drives desktop and mobile viewports in headless Chrome, plays a full round via real key/touch input, and fails on any page error.
+
 ### Rules and content
 
 - Unit-test every legal action, invalid-action reason, scoring component, terminal state, and serialization migration.

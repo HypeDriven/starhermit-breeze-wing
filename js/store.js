@@ -50,11 +50,18 @@ function checksumOf(doc) {
 /** Migrate older documents forward, one version at a time. */
 export function migrate(doc) {
   if (!doc || typeof doc !== 'object') return defaultSave();
-  let d = doc;
-  if (typeof d.version !== 'number' || d.version < 1) {
-    d = { ...defaultSave(), ...d, version: 1 };
+  const base = defaultSave();
+  // Always start from defaults and layer the persisted fields on top, so a
+  // version-valid document that is nonetheless missing a progress/settings
+  // sub-object degrades to a full default document instead of throwing later
+  // (as `loadSave` already does for localStorage).
+  const d = { ...base, ...doc };
+  d.settings = { ...base.settings, ...(doc.settings || {}) };
+  d.settings.volumes = { ...base.settings.volumes, ...((doc.settings && doc.settings.volumes) || {}) };
+  d.progress = { ...base.progress, ...(doc.progress || {}) };
+  for (const k of ['lessons', 'journey', 'achievements', 'daysPlayed', 'best', 'localBoard']) {
+    if (!d.progress[k]) d.progress[k] = base.progress[k];
   }
-  // Future: if (d.version === 1) { d = migrate1to2(d); }
   d.version = SAVE_VERSION;
   return d;
 }
@@ -89,12 +96,13 @@ export function writeSave(storage, doc) {
 /** Compare two save docs for cloud-conflict resolution. */
 export function isDescendant(candidate, base) {
   // A doc is a strict descendant if it has >= progress on every tracked field.
-  const p = candidate.progress, q = base.progress;
+  const p = (candidate && candidate.progress) || {};
+  const q = (base && base.progress) || {};
   if (!p || !q) return false;
   const keys = (o) => Object.keys(o || {});
-  const superset = (a, b) => keys(b).every((k) => k in a);
+  const superset = (a, b) => keys(b).every((k) => k in (a || {}));
   const journeyOk = keys(q.journey).every((k) => {
-    const a = p.journey[k], b = q.journey[k];
+    const a = (p.journey || {})[k], b = (q.journey || {})[k];
     return a && (a.bestScore || 0) >= (b.bestScore || 0);
   });
   return superset(p.lessons, q.lessons) && superset(p.achievements, q.achievements) && journeyOk &&
@@ -103,8 +111,8 @@ export function isDescendant(candidate, base) {
 
 /** Merge two docs (union), used after player picks or to auto-resolve. */
 export function mergeSaves(a, b) {
-  const out = migrate(JSON.parse(JSON.stringify(a)));
-  const src = migrate(JSON.parse(JSON.stringify(b)));
+  const out = migrate(JSON.parse(JSON.stringify(a || {})));
+  const src = migrate(JSON.parse(JSON.stringify(b || {})));
   for (const k of Object.keys(src.progress.lessons || {})) out.progress.lessons[k] = true;
   for (const [k, v] of Object.entries(src.progress.journey || {})) {
     const cur = out.progress.journey[k];

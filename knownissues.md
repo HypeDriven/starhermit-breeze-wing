@@ -3,116 +3,85 @@
 QA pass 2026-08-20. Static review driven by Qwen3.8 27B on local5090 (HauhauCS Q3_K_P, 32k ctx),
 alongside the game's own unit tests and a headless-Chrome boot/play smoke.
 
+**Fix pass 2026-09-04** (this update): all five confirmed defects triaged against the current source
+and fixed. Unit tests and the browser e2e re-run green. See `## Resolved defects`.
+
 ## Test results
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 47/47 pass, 0 fail |
+| `npm test` (node --test) | 47/47 pass, 0 fail |
 | `node --check` on all modules | clean (`js/*.js`, `server.js`, `tests/*.mjs`) |
-| `tests/e2e.mjs` (headless Chrome) | not present. Substituted a headless-Chrome smoke against `PORT=39302 node server.js`: boot to title, `#btn-play` → setup → `#btn-setup-start` → game. No page errors, no console errors, no failed requests. |
+| `tests/e2e.mjs` (`npm run test:e2e`, headless Chrome) | present. PASS on desktop + mobile, no page/console errors, exit 0. |
+| Directory-request smoke (`GET /js`, `/css`, `/vendor`) | all 404; server stays up (`GET /api/v1/time` still 200, process alive) |
 
-## Confirmed defects
+## Resolved defects
 
-### 1. `GET /js` (or any directory path) crashes the server process
+### 1. `GET /js` (or any directory path) crashes the server process — RESOLVED
 
-- **File:** `server.js:237-247` (static file branch of the request handler)
-- **Trigger:** a single unauthenticated `GET /js`, `GET /css`, `GET /vendor` — any existing directory name without a trailing slash.
-- **Behaviour:** line 237 blocks only `data/` and `tests/` *with* a trailing slash, so a bare directory name passes. `existsSync(file)` (line 241) is true for directories. `createReadStream(file).pipe(res)` (line 247) then emits `'error'` (EISDIR) with no `'error'` listener attached. The surrounding `try/catch` (lines 230-250) cannot catch it because the error is asynchronous, so Node re-throws and the process exits.
-- **Expected:** a directory request should be a 404; a malformed request must never terminate the service.
-- **Evidence:**
+- **File:** `server.js:243-245` (static-file branch), `server.js:19` (import), `server.js:249-252` (stream error guard).
+- **Fix:** after `existsSync`, an explicit `statSync(file).isDirectory()` check now returns 404 before
+  any stream is opened, so a bare directory name (e.g. `/js`, `/css`, `/vendor`) — which previously
+  slipped past the `data/`/`tests/` *trailing-slash* block — can no longer reach `createReadStream`.
+  A stream-level `'error'` listener was also added so any underlying read error is answered with a 500
+  instead of an unhandled async re-throw. A malformed request can never terminate the service.
+- **Verified:** `GET /js` → 404, `GET /css` → 404, `GET /vendor` → 404, `GET /js/` → 404; subsequent
+  `GET /api/v1/time` → 200 and the Node process remains alive (previously the process exited and the
+  next request returned `000`).
 
-  ```
-  $ curl -o /dev/null -w '%{http_code}' http://localhost:39312/api/v1/time   -> 200
-  $ curl -o /dev/null -w '%{http_code}' http://localhost:39312/js            -> 000
-  $ curl -o /dev/null -w '%{http_code}' http://localhost:39312/api/v1/time   -> 000   (process gone)
+### 2. `step()` and `applyCommand()` mutate the state object they were given — RESOLVED
 
-  server log:
-  Error: EISDIR: illegal operation on a directory, read
-      Emitted 'error' event on ReadStream instance at:
-      at emitErrorNT (node:internal/streams/destroy:170:8)
-  ```
+- **File:** `js/rules.js:323-332` (`step` next-state build), `js/rules.js:265` (`applyCommand` next-state build).
+- **Fix:** the shallow spread leaves `next.score` aliased to `state.score`, so `next.score.gates/center/
+  streak/total +=` (and `finalizeScore`) wrote through into the caller's snapshot. Both `step`'s
+  `next` and the `applyCommand` command branch now build `score: { ...state.score }`, so the input
+  state stays immutable (only `state` returned via the unchanged READY/illegal paths kept as-is).
+- **Verified:** after a 200-tick simulated flight, `step(s).state.score !== s.score` (previously
+  identical reference) and the pre-step snapshot keeps its original `{gates:0,center:0,streak:0,time:0,
+  total:0}`. Determinism / `hashState` stability unchanged and re-verified by the existing unit tests.
 
-### 2. `step()` and `applyCommand()` mutate the state object they were given
+### 3. Replay envelopes produced by the game cannot be replayed — RESOLVED
 
-- **File:** `js/rules.js:323-331` (`step`, the `const next = { ...state, ... }` shallow copy), with the
-  mutations at lines 356, 363-364, 369, 400 and inside `finalizeScore` (lines 412-419, also called from
-  `applyCommand` at line 278).
-- **Trigger:** any `step()` call on the tick a gate is passed; any `ABANDON` command.
-- **Behaviour:** the spread copy is shallow, so `next.score === state.score` and
-  `next.gates[i] === state.gates[i]`. `next.score.gates += 100`, `next.score.center += centerBonus`,
-  `next.score.streak += streakBonus`, `next.score.total = ...` and `g.passed = true` therefore write
-  through into the state the caller passed in. A snapshot taken before the step retroactively acquires
-  the new score, and its `hashState` changes.
-- **Expected:** spec.md §5 (line 168) — "No module may mutate rules state except through a validated
-  command. Rendering consumes immutable snapshots plus interpolation data."
-- **Evidence:**
+- **File:** `js/rules.js:471-497` (`createReplayEnvelope`), reused by `js/rules.js:501` (`runReplay`).
+- **Fix:** `createReplayEnvelope` now emits the normalized `config` (documented in the envelope
+  schema comment). `runReplay` already reconstructed with `createSession({ ...envelope.config, seed })`;
+  with `config` present the envelope is self-describing (spec §5) and no longer needs the external
+  `env.config = ...` patch. The authoritative server (`server.js:184`) still overrides `config`/`seed`
+  with its own rebuilt content, which is the intended trust model.
+- **Verified:** `runReplay(JSON.parse(JSON.stringify(gs.envelope)))` on a recorded session — with **no**
+  external config injection — now returns `{ok:true, mismatch:null}`, and both `state.score.total` and
+  `hashState(state)` match the recorded `result`. (A pristine envelope with zero flap commands still
+  correctly yields `no-termination`, because a never-started session legitimately stays `READY`.)
 
-  ```
-  identity check: step(s).state.score === s.score   -> true
-  identity check: step(s).state.gates[0] === s.gates[0] -> true
+### 4. Cloud-save conflict destroys the other device's snapshot — RESOLVED
 
-  === INPUT-STATE MUTATION at tick 154
-     prev.score before step: {"gates":0,"center":0,"streak":0,"time":0,"total":0}
-     prev.score after  step: {"gates":100,"center":43,"streak":10,"time":0,"total":153}
-     hashState(prev) before: 6875aa3c | after: 49196772
-  ```
+- **File:** `js/main.js:121-147` (`_syncCloud` → `_resolveCloudConflict`), `js/main.js:326-332` (save-conflict path).
+- **Root cause:** on a conflicted `saveProgress`, the server returns the previous snapshot as
+  `doc`/`remote`, but `js/main.js` called `_syncCloud()` again, which re-fetched from the server — now
+  holding the just-written doc — and compared the local doc against a copy of itself (early return at
+  `_syncCloud`). The other device's snapshot was silently dropped and no conflict screen appeared.
+- **Fix:** the save-conflict path now uses the server-returned prior snapshot: shared logic
+  `_resolveCloudConflict(remote)` compares the local save against that remote doc, auto-adopting if one
+  is a strict descendant and otherwise preserving **both** in `this._cloudDoc` and asking the player via
+  the conflict screen (spec §6). Boot-time `_syncCloud()` routes through the same helper.
+- **Why the server handler wasn't changed:** `server.js` already returns the prior snapshot (`doc:
+  existing`) on conflict, so both snapshots are available at the resolution point; the data loss was
+  purely the client discarding it. The server is a mirror (each device also keeps a local copy via
+  `writeSave`), so preserving the returned remote at the client is sufficient. No shadow/clobber
+  storage was added to avoid changing the save schema contract.
 
-### 3. Replay envelopes produced by the game cannot be replayed
+### 5. `mergeSaves` and `isDescendant` throw on save documents the server accepts — RESOLVED
 
-- **File:** `js/rules.js:478-491` (`createReplayEnvelope`) vs `js/rules.js:501` (`runReplay`)
-- **Trigger:** `runReplay(createReplayEnvelope(config, build))`.
-- **Behaviour:** `runReplay` reconstructs the session with
-  `createSession({ ...envelope.config, seed: envelope.seed })`, but `createReplayEnvelope` never emits a
-  `config` field, and the documented envelope schema in the comment at lines 471-475 does not list one
-  either. The spread contributes nothing, the session is built from `{ seed }` alone, and the replay
-  never terminates.
-- **Expected:** spec.md §5 "Determinism, replay, and security" — a replay envelope should be
-  self-describing so a validator can re-execute it.
-- **Evidence:** `runReplay(createReplayEnvelope(dailyContent('2026-08-20'), 'dev'))` returns
-  `{"ok":false,"mismatch":"no-termination"}` after burning the 36000-step guard.
-  Both shipped call sites patch around it: `server.js:183` injects
-  `const env = { ...claim.envelope, config, seed: config.seed }`, and `tests/rules.test.mjs:286` does
-  `env.config = cfg; // runReplay needs the config to reconstruct`.
-
-### 4. Cloud-save conflict destroys the other device's snapshot
-
-- **File:** `server.js:157-161` (`PUT /api/v1/save`), with `js/main.js:326-330`
-- **Trigger:** device A and device B both have progress; B saves while the server still holds A's document.
-- **Behaviour:** the handler computes `conflict` (line 158) and then **unconditionally overwrites**
-  `saves[id] = doc` (line 159), keeping only the incoming document. The previous document is returned
-  once in the response (`doc: existing`) and `js/platform.js:132` surfaces it as `remote`, but
-  `js/main.js:328` ignores that field and simply calls `this._syncCloud()`, which re-fetches from the
-  server — where the pre-conflict document no longer exists. `_syncCloud` therefore compares the local
-  document against a copy of itself, takes the early return at `js/main.js:125`, and the conflict screen
-  never appears. A's progress is gone.
-- **Expected:** spec.md §6 (line 195) — "Resolve conflicts by preserving both snapshots and asking the
-  player when neither is a strict descendant."
-- **Evidence:** `server.js:158-161` — `const conflict = ...; saves[id] = doc; await saveTable(...);
-  return send(res, 200, { ok: true, conflict, doc: existing || null });` — nothing preserves `existing`
-  server-side. `js/main.js:328` — `if (r && r.conflict) this._syncCloud();` — `r.remote` is unused.
-
-### 5. `mergeSaves` and `isDescendant` throw on save documents the server accepts
-
-- **File:** `js/store.js:96-101` (`isDescendant`) and `js/store.js:105-121` (`mergeSaves`), with
-  `server.js:151` and `js/store.js:51-60` (`migrate`)
-- **Trigger:** a cloud document that lacks `progress` or lacks one of its sub-objects. `PUT /api/v1/save`
-  accepts anything with a numeric `version` (`server.js:151`: `typeof doc.version !== 'number'` is the
-  only shape check), and `migrate()` only normalises `version` — it never fills in missing `progress`
-  sub-objects.
-- **Behaviour:** the conflict screen's Merge button (`js/main.js:738`,
-  `mergeSaves(this.save, this._cloudDoc)`) throws, and `_syncCloud`'s descendancy test
-  (`js/main.js:125`) throws during `init()` — which is awaited at `js/main.js:93`, before
-  `_toTitle('boot-complete')`, so the game never leaves the boot screen.
-- **Expected:** absent or corrupt stored data should degrade to a default document, the way
-  `loadSave` already does for localStorage (`js/store.js:62-77`).
-- **Evidence:**
-
-  ```
-  mergeSaves(local, {version:1})            THREW: TypeError: Cannot read properties of undefined (reading 'lessons')
-  mergeSaves({version:1}, local)            THREW: TypeError: Cannot read properties of undefined (reading 'achievements')
-  mergeSaves({version:1,progress:{}}, local) THREW: TypeError: Cannot convert undefined or null to object
-  isDescendant({version:1,progress:{}}, saveWithJourney) THREW: TypeError: Cannot read properties of undefined (reading 'j1')
-  ```
+- **File:** `js/store.js:50-77` (`migrate`), `js/store.js:103-120` (`isDescendant`), `js/store.js:123-127` (`mergeSaves`).
+- **Fix:** `migrate` now always reconstructs from `defaultSave()` and layers the persisted fields on
+  top (settings, settings.volumes, and every progress sub-object), so a version-valid document that is
+  nonetheless missing a sub-object degrades to a full default — mirroring what `loadSave` already does
+  for localStorage. `isDescendant` and `mergeSaves` additionally tolerate `null`/partial `progress`
+  (`graded access: (candidate && candidate.progress) || {}`, missing `journey`/`lessons` guarded).
+- **Verified:** previously-throwing calls now all succeed:
+  `mergeSaves({version:1}, local)` ✓, `mergeSaves(local, {version:1,progress:{}})` ✓,
+  `mergeSaves(defaultSave(), {version:1})` ✓, `isDescendant({version:1,progress:{}}, saveWithJourney)` ✓
+  (returns false, no throw).
 
 ## Suspected — not confirmed
 

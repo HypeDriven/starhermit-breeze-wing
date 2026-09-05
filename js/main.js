@@ -120,6 +120,17 @@ class App {
 
   async _syncCloud() {
     const remote = await this.platform.loadProgress();
+    this._resolveCloudConflict(remote);
+  }
+
+  /**
+   * Resolve a cloud-save conflict: when neither side is a strict descendant we
+   * must preserve BOTH snapshots and ask the player (spec §6). `remote` is the
+   * other device's snapshot; the local save is this._save.doc. Called from
+   * boot sync and again when a save reports a conflict, so the server-returned
+   * prior snapshot is never silently discarded.
+   */
+  _resolveCloudConflict(remote) {
     if (!remote) return;
     const local = this.save;
     if (isDescendant(local, remote) || JSON.stringify(local.progress) === JSON.stringify(remote.progress)) return;
@@ -325,7 +336,11 @@ class App {
     // Cloud save (versioned, checksummed doc).
     if (this.platform.hosted && !this.platform.profile.guest) {
       this.platform.saveProgress(this.save).then((r) => {
-        if (r && r.conflict) this._syncCloud();
+        // A conflict returns the OTHER device's prior snapshot in `remote`.
+        // Resolve against it directly rather than re-fetching (which would
+        // compare the local doc against a copy of itself and drop the other
+        // device's progress).
+        if (r && r.conflict && r.remote) this._resolveCloudConflict(r.remote);
       });
     }
 

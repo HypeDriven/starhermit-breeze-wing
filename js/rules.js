@@ -262,7 +262,7 @@ export function applyCommand(state, cmd) {
     const next = { ...state, invalidActions: state.invalidActions + 1 };
     return { state: next, events: [{ type: 'invalid', reason }], accepted: false, reason };
   }
-  const next = { ...state, commands: [...state.commands, id] };
+  const next = { ...state, commands: [...state.commands, id], score: { ...state.score } };
   const events = [];
   if (type === ActionType.FLAP) {
     if (next.phase === Phase.READY) {
@@ -328,6 +328,7 @@ export function step(state) {
     nextGateIndex,
     rngState: rng.getState(),
     lastEventTick: state.lastEventTick,
+    score: { ...state.score },          // immutable snapshot: never write into caller's state
   };
 
   let terminal = null;
@@ -469,9 +470,11 @@ function stableStringify(v) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Replay envelope: { schemaVersion, rulesVersion, build, contentId, seed,
- * createdAtOffset, commands: [{id, tick, type}], hashes: [{tick, hash}],
- * result }.
+ * Replay envelope: { schemaVersion, rulesVersion, build, contentId,
+ * contentVersion, seed, config, createdAtOffset, commands: [{id, tick,
+ * type}], hashes: [{tick, hash}], result }.
+ * `config` makes the envelope self-describing: a validator can re-execute it
+ * from the envelope alone (spec §5), with no external session state needed.
  */
 export const REPLAY_SCHEMA_VERSION = 1;
 
@@ -483,6 +486,7 @@ export function createReplayEnvelope(config, build) {
     contentId: config.id,
     contentVersion: config.version,
     seed: config.seed,
+    config,
     createdAtOffset: 0,
     commands: [],
     hashes: [],

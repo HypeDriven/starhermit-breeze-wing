@@ -16,7 +16,7 @@
 
 import http from 'node:http';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runReplay, REPLAY_SCHEMA_VERSION, RULES_VERSION } from './js/rules.js';
@@ -239,13 +239,21 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(404); return res.end();
     }
     const file = join(ROOT, path);
-    if (!existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+    // A directory (bare name or trailing slash) is never a deliverable:
+    // resolving it here avoids createReadStream's async EISDIR (which would
+    // otherwise escape the try/catch and take the process down).
+    if (!existsSync(file) || statSync(file).isDirectory()) {
+      res.writeHead(404); return res.end('not found');
+    }
     const immutable = /\.(js|css|png|svg)$/.test(file);
     res.writeHead(200, {
       'Content-Type': MIME[extname(file)] || 'application/octet-stream',
       'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
     });
-    createReadStream(file).pipe(res);
+    const stream = createReadStream(file);
+    // Never let an underlying read error terminate the service.
+    stream.on('error', () => { if (!res.headersSent) res.writeHead(500); res.end(); });
+    stream.pipe(res);
   } catch (err) {
     send(res, err.message === 'payload-too-large' ? 413 : 500, { error: err.message || 'server-error' });
   }
