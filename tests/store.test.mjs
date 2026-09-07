@@ -86,3 +86,11 @@ test('mergeSaves unions progress from both sides', () => {
   // Inputs unchanged.
   assert.equal(Object.keys(a.progress.journey).length, 1);
 });
+
+test('mergeSaves carries tutorialDone from either side', () => {
+  const a = defaultSave(); const b = defaultSave();
+  b.progress.tutorialDone = true;
+  assert.equal(mergeSaves(a, b).progress.tutorialDone, true);
+  assert.equal(mergeSaves(b, a).progress.tutorialDone, true);
+  assert.equal(mergeSaves(a, defaultSave()).progress.tutorialDone, false);
+});

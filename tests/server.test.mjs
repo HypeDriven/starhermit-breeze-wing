@@ -9,13 +9,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-process.env.DATA_DIR_OVERRIDE = '';
-
 let server, base, dataDir;
 
-// Point the server's DATA_DIR at a temp location by running in-process with
-// a chdir-free approach: the server module computes DATA_DIR from its own
-// path, so instead we just let it write ./data and clean up after.
+// Never overwrite or remove the developer's persistent game data.
+dataDir = await mkdtemp(join(tmpdir(), 'breeze-wing-test-'));
+process.env.BW_DATA_DIR = dataDir;
 const { server: srv, plausible } = await import('../server.js');
 const { dailyContent } = await import('../js/content.js');
 const { GameSession } = await import('../js/session.js');
@@ -30,13 +28,28 @@ before(async () => {
 
 after(async () => {
   await new Promise((r) => server.close(r));
-  await rm(join(process.cwd(), 'data'), { recursive: true, force: true });
+  await rm(dataDir, { recursive: true, force: true });
 });
 
 const post = (path, body, headers = {}) => fetch(base + path, {
   method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
   body: JSON.stringify(body),
 }).then((r) => r.json().then((j) => ({ status: r.status, body: j })));
+
+test('concurrent first requests preserve every score', async () => {
+  const cfg = dailyContent('2026-08-18');
+  const boardKey = `daily-${cfg.dateKey}`;
+  const responses = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+    post('/api/v1/scores', {
+      board: boardKey, score: 100 + i, ruleset: cfg.id,
+      contentVersion: cfg.version, seed: cfg.seed, durationTicks: 6000,
+    }, { 'x-player-id': 'cold-player-' + i, 'x-player-name': 'Cold ' + i })));
+  for (const response of responses) assert.equal(response.status, 200, JSON.stringify(response.body));
+  const board = await fetch(`${base}/api/v1/scores?board=${boardKey}`).then(r => r.json());
+  assert.equal(board.entries.length, 8);
+  const disk = JSON.parse(await (await import('node:fs/promises')).readFile(join(dataDir, 'scores.json'), 'utf8'));
+  assert.equal(disk[boardKey].length, 8, 'all accepted entries persisted');
+});
 
 test('GET /api/v1/time returns a numeric clock', async () => {
   const r = await fetch(`${base}/api/v1/time`).then((x) => x.json());

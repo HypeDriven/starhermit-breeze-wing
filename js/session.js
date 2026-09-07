@@ -24,6 +24,9 @@ export class GameSession {
     this.build = opts.build || 'dev';
     this.allowUndo = opts.allowUndo === true;
     this.sessionId = opts.sessionId || `s-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+    // Raw content config (pre-normalization) for progression/results metadata;
+    // never part of rules state, so it cannot affect determinism or hashing.
+    this.rawConfig = opts.rawConfig || null;
     this.envelope = createReplayEnvelope(this.state.config, this.build);
     this._cmdCounter = 0;
     this._undoStack = []; // serialized states, practice only
@@ -94,9 +97,15 @@ export class GameSession {
     if (this.state.phase === Phase.TERMINAL) return false;
     const json = this._undoStack.pop();
     this.state = deserialize(json);
-    // Drop the replay commands issued after the restored point.
+    // Drop the replay commands issued after the restored point, then the
+    // undone flap itself: it was applied at the restored tick, so it is the
+    // last remaining command and must leave the log too.
     while (this.envelope.commands.length &&
            this.envelope.commands[this.envelope.commands.length - 1].tick > this.state.tick) {
+      this.envelope.commands.pop();
+    }
+    if (this.envelope.commands.length &&
+        this.envelope.commands[this.envelope.commands.length - 1].tick === this.state.tick) {
       this.envelope.commands.pop();
     }
     this._emit([{ type: 'undo' }]);
@@ -118,6 +127,7 @@ export class GameSession {
         build: this.build,
         state: JSON.parse(serialize(this.state)),
         envelope: this.envelope,
+        rawConfig: this.rawConfig,
         savedAt: Date.now(),
       }));
     } catch { /* quota / privacy mode: snapshot is best-effort */ }
@@ -129,7 +139,7 @@ export class GameSession {
       const raw = storage.getItem(SAFE_SNAPSHOT_KEY);
       if (!raw) return null;
       const data = JSON.parse(raw);
-      const s = new GameSession(data.state.config, { build: data.build, sessionId: data.sessionId });
+      const s = new GameSession(data.state.config, { build: data.build, sessionId: data.sessionId, rawConfig: data.rawConfig || null });
       s.state = deserialize(JSON.stringify(data.state));
       s.envelope = data.envelope;
       return s;

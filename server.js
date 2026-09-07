@@ -15,7 +15,7 @@
  */
 
 import http from 'node:http';
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,7 @@ import { runReplay, REPLAY_SCHEMA_VERSION, RULES_VERSION } from './js/rules.js';
 import { CONTENT_VERSION, dailyContent, scoreChaseContent, ACHIEVEMENTS } from './js/content.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
-const DATA_DIR = join(ROOT, 'data');
+const DATA_DIR = process.env.BW_DATA_DIR || join(ROOT, 'data');
 const PORT = Number(process.env.PORT || 8080);
 const MAX_BODY = 256 * 1024; // payload size bound
 const RATE_WINDOW_MS = 60_000;
@@ -40,15 +40,36 @@ const MIME = {
 
 /* ------------------------------ storage ----------------------------- */
 
+// Tables are cached in-process (this script owns its data dir) so concurrent
+// requests read-modify-write the SAME object; writes are serialized through a
+// promise queue and committed atomically via tmp-file + rename. Without both,
+// two overlapping submissions could each snapshot the table and the later
+// write would silently discard the earlier one.
+const tableCache = new Map();
+let writeQueue = Promise.resolve();
+
 async function loadTable(name) {
-  try { return JSON.parse(await readFile(join(DATA_DIR, `${name}.json`), 'utf8')); }
-  catch { return {}; }
+  if (!tableCache.has(name)) {
+    // Cache the promise before yielding: simultaneous first requests must
+    // share one table object, too, rather than each loading their own copy.
+    tableCache.set(name, (async () => {
+      try { return JSON.parse(await readFile(join(DATA_DIR, `${name}.json`), 'utf8')); }
+      catch { return {}; }
+    })());
+  }
+  return tableCache.get(name);
 }
 async function saveTable(name, table) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const tmp = join(DATA_DIR, `.${name}.tmp`);
-  await writeFile(tmp, JSON.stringify(table));
-  await writeFile(join(DATA_DIR, `${name}.json`), JSON.stringify(table));
+  const run = async () => {
+    await mkdir(DATA_DIR, { recursive: true });
+    const tmp = join(DATA_DIR, `.${name}.tmp`);
+    await writeFile(tmp, JSON.stringify(table));
+    await rename(tmp, join(DATA_DIR, `${name}.json`));
+  };
+  // Serialize writes; a failed write must not poison the queue for later ones.
+  const p = writeQueue.then(run, run);
+  writeQueue = p.catch(() => {});
+  return p;
 }
 
 /* ----------------------------- helpers ------------------------------ */

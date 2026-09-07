@@ -328,6 +328,34 @@ test('undo disallowed without opt-in', () => {
   assert.equal(gs.undo(), false);
 });
 
+test('undo also removes the undone flap from the replay envelope', () => {
+  const gs = new GameSession(testConfig(), { allowUndo: true });
+  gs.command(ActionType.FLAP);
+  for (let i = 0; i < 30; i++) gs.tick();
+  gs.command(ActionType.FLAP);
+  for (let i = 0; i < 10; i++) gs.tick();
+  const before = gs.envelope.commands.length;
+  assert.equal(gs.undo(), true);
+  assert.equal(gs.envelope.commands.length, before - 1);
+  for (const c of gs.envelope.commands) assert.ok(c.tick <= gs.state.tick);
+  // The trimmed envelope still replays the continued session exactly.
+  gs.command(ActionType.FLAP);
+  let guard = 60 * 300;
+  while (gs.phase !== Phase.TERMINAL && guard--) gs.tick();
+  const r = runReplay(JSON.parse(JSON.stringify(gs.envelope)));
+  assert.equal(r.ok, true, `mismatch: ${r.mismatch}`);
+  assert.equal(r.state.score.total, gs.state.score.total);
+});
+
+test('replay rejects non-integer command ticks', () => {
+  const cfg = testConfig();
+  const env = createReplayEnvelope(cfg, 'test');
+  env.commands.push({ id: 'x', tick: 5.5, type: 'flap' });
+  const r = runReplay(env);
+  assert.equal(r.ok, false);
+  assert.equal(r.mismatch, 'bad-command-tick');
+});
+
 /* ------------------------------- fuzz ------------------------------ */
 
 test('fuzz: malformed commands and random inputs never hang or NaN', () => {

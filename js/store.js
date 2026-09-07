@@ -119,6 +119,7 @@ export function mergeSaves(a, b) {
     if (!cur || (v.bestScore || 0) > (cur.bestScore || 0)) out.progress.journey[k] = v;
   }
   Object.assign(out.progress.achievements, src.progress.achievements || {});
+  out.progress.tutorialDone = !!(out.progress.tutorialDone || src.progress.tutorialDone);
   out.progress.daysPlayed = [...new Set([...(out.progress.daysPlayed || []), ...(src.progress.daysPlayed || [])])];
   for (const [k, v] of Object.entries(src.progress.best || {})) {
     if ((out.progress.best[k] || 0) < v) out.progress.best[k] = v;

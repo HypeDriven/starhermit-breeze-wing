@@ -177,7 +177,9 @@ export class Renderer {
     this.ghostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false });
     this.ghostDots = [];
     for (let i = 0; i < 12; i++) {
-      const d = new THREE.Mesh(dotGeo, this.ghostMat);
+      // Each dot needs its own material: the fade gradient below sets opacity
+      // per dot, which is impossible while all dots share one instance.
+      const d = new THREE.Mesh(dotGeo, this.ghostMat.clone());
       d.layers.set(LAYER_GHOST);
       this.ghostGroup.add(d);
       this.ghostDots.push(d);

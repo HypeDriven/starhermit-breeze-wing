@@ -507,7 +507,7 @@ export function runReplay(envelope) {
   let mismatch = null;
   const hashMap = new Map((envelope.hashes || []).map((h) => [h.tick, h.hash]));
   for (const cmd of cmds) {
-    if (typeof cmd.tick !== 'number' || cmd.tick < state.tick || cmd.tick > state.tick + 60 * 60 * 60) {
+    if (!Number.isInteger(cmd.tick) || cmd.tick < state.tick || cmd.tick > state.tick + 60 * 60 * 60) {
       return { state, ok: false, mismatch: 'bad-command-tick' };
     }
     while (state.tick < cmd.tick && state.phase !== Phase.TERMINAL) {

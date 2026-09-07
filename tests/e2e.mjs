@@ -113,6 +113,7 @@ async function desktopPass(browser, base, errors) {
   page.on('console', (m) => {
     if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`[desktop] console: ${m.text()}`);
   });
+  let stage1End = null;
 
   const step = async (name, fn) => { await fn(); console.log(`ok - [desktop] ${name}`); };
 
@@ -151,6 +152,7 @@ async function desktopPass(browser, base, errors) {
     await page.waitForTimeout(2500); // mid-flight screenshot
     await page.screenshot({ path: SHOT('play', vp) });
     const end = await fly;
+    stage1End = end;
     console.log(`  stage 1 ended: ${end.terminal?.reason}, gates ${end.gatesPassed}`);
     await page.waitForSelector('#screen-results:not([hidden])', { timeout: 8000 });
     const total = await page.textContent('#bd-total');
@@ -162,8 +164,16 @@ async function desktopPass(browser, base, errors) {
   });
 
   await step('next/retry → pause → resume → crash out', async () => {
-    if (await page.locator('#btn-next').isVisible()) await page.click('#btn-next');
-    else await page.click('#btn-retry');
+    if (stage1End?.terminal?.reason === 'cleared') {
+      // Regression: a cleared journey stage must offer the Next-stage action
+      // (results read content metadata from the raw round config).
+      if (!(await page.locator('#btn-next').isVisible())) {
+        throw new Error('cleared journey stage but the Next-stage button is hidden');
+      }
+      await page.click('#btn-next');
+    } else {
+      await page.click('#btn-retry');
+    }
     await waitAppState(page, 'active', 8000);
     await blurFocus(page);
     await page.click('#btn-pause');
@@ -213,6 +223,42 @@ async function desktopPass(browser, base, errors) {
     await page.waitForSelector('#screen-help:not([hidden])');
     await page.screenshot({ path: SHOT('help', vp) });
     await page.click('#btn-help-back');
+    await page.waitForSelector('#screen-title:not([hidden])');
+  });
+
+  await step('daily abandon targets the dated board exactly once', async () => {
+    // Regression: ranked submission must use the raw config's dateKey (the
+    // normalized rules config does not carry it) and must fire exactly once
+    // per round (leave-round previously finished the session twice).
+    await page.evaluate(() => {
+      window.__capturedBoards = [];
+      window.__runsBefore = window.__bw.progress.totalRuns;
+      window.__bw.platform.submitScore = (p) => {
+        window.__capturedBoards.push(p.board);
+        return Promise.resolve({ ok: false, reason: 'spy' });
+      };
+    });
+    await page.click('#btn-daily');
+    await page.waitForSelector('#screen-setup:not([hidden])');
+    await page.click('#btn-setup-start');
+    await waitAppState(page, 'active', 8000);
+    await blurFocus(page);
+    await page.keyboard.press('Space'); // take off
+    await page.click('#btn-pause');
+    await page.waitForSelector('#screen-pause:not([hidden])');
+    await page.click('#btn-leave');
+    await page.waitForSelector('#screen-results:not([hidden])', { timeout: 8000 });
+    await page.waitForTimeout(1400); // let any stale terminal timer fire
+    const check = await page.evaluate(() => ({
+      boards: window.__capturedBoards,
+      runsDelta: window.__bw.progress.totalRuns - window.__runsBefore,
+      dayKey: new Date().toISOString().slice(0, 10),
+    }));
+    if (check.boards.length !== 1 || check.boards[0] !== `daily-${check.dayKey}`) {
+      throw new Error(`ranked daily submission wrong: ${JSON.stringify(check.boards)} (expected exactly one entry for daily-${check.dayKey})`);
+    }
+    if (check.runsDelta !== 1) throw new Error(`round progressed ${check.runsDelta} times (expected 1)`);
+    await page.click('#btn-results-menu');
     await page.waitForSelector('#screen-title:not([hidden])');
   });
 

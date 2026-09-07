@@ -101,6 +101,7 @@ class App {
     if (snap && snap.phase !== Phase.TERMINAL && !this._awayShown) {
       this._awayShown = true;
       this.session = snap;
+      this._roundConfig = snap.rawConfig || snap.config;
       this.renderer.prepareSession(snap.config);
       this._showAway(snap);
     } else {
@@ -183,11 +184,18 @@ class App {
 
   _beginRound(reason) {
     const cfg = this.pendingConfig;
+    // Keep the RAW content config for this round: the rules state only holds
+    // the normalized config (normalizeConfig drops content metadata such as
+    // dateKey, index, lesson), but progression, results, and ranked
+    // submission need those fields. Always read content metadata from here,
+    // rules truth from session.state.
+    this._roundConfig = cfg;
     this._clearCountdown();
     GameSession.clearSafeSnapshot(localStorage);
     this.session = new GameSession(cfg, {
       build: BUILD,
       allowUndo: cfg.mode === 'practice',
+      rawConfig: cfg,
       sessionId: `bw-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e8).toString(36)}`,
     });
     this.session.onEvent((events, state) => this._onSessionEvents(events, state));
@@ -255,6 +263,12 @@ class App {
 
   _finishRound(reason) {
     if (!this.session) { this._toTitle('no-session'); return; }
+    // Finish each session exactly once: _leaveRound() finishes immediately,
+    // but the 'terminal' event also schedules a delayed finish for the
+    // crash/clear animation — without this guard the round would be
+    // progressed and submitted twice.
+    if (this._finishedFor === this.session) return;
+    this._finishedFor = this.session;
     const s = this.session.state;
     GameSession.clearSafeSnapshot(localStorage);
     this.appState = 'results';
@@ -275,7 +289,7 @@ class App {
 
   _progressRound(s, won) {
     const p = this.progress;
-    const cfg = s.config;
+    const cfg = this._roundConfig || s.config;
     const extras = [];
     p.totalRuns += 1;
     p.totalGates += s.gatesPassed;
@@ -360,7 +374,7 @@ class App {
   }
 
   _fillResults(s, won, extras) {
-    const cfg = s.config;
+    const cfg = this._roundConfig || s.config;
     const reasonText = {
       floor: 'You met the sea.',
       ceiling: 'You clipped the sky.',
@@ -429,8 +443,11 @@ class App {
           this.audio.event('terminal', { reason: e.reason });
           this._haptic(e.reason === 'cleared' ? [30, 40, 30] : 60);
           this.audio.setMusicIntensity(0.2);
-          // Let the crash/clear animation breathe, then show results.
-          setTimeout(() => { if (this.session) this._finishRound('terminal'); }, this.settings.reducedMotion ? 400 : 1100);
+          // Let the crash/clear animation breathe, then show results. Capture
+          // the session: if the player already retried, this timer must not
+          // finish the NEW round.
+          const endedSession = this.session;
+          setTimeout(() => { if (this.session === endedSession) this._finishRound('terminal'); }, this.settings.reducedMotion ? 400 : 1100);
           break;
         case 'undo':
           this.audio.event('undo');
@@ -544,8 +561,16 @@ class App {
           break;
         case 'Escape': case 'KeyP':
           if (this.appState === 'active' || this.appState === 'countdown') this._pause('key');
-          else if (this.appState === 'paused') this._resume();
-          else if (this.ui._current && !['title'].includes(this.ui._current)) { this.ui.hide(); this._backFromScreen(); }
+          else if (this.appState === 'paused' && (!this.ui._current || this.ui._current === 'pause')) this._resume();
+          else if (this.appState === 'paused') {
+            // Sub-screen (settings/help) open over pause: back to pause,
+            // never strand the frozen round behind no UI.
+            this.ui.hide();
+            this.ui.show('pause');
+          } else if (this.ui._current && !['title'].includes(this.ui._current)) {
+            this.ui.hide();
+            this._backFromScreen();
+          }
           break;
         case 'KeyU':
           if (this.session && this.session.canUndo) this.session.undo();
@@ -643,12 +668,16 @@ class App {
 
   _backFromScreen() {
     if (['pause'].includes(this.ui._current)) return;
-    if (this.appState === 'title' || !this.session) this._toTitle('back');
+    // 'results' included: leaving the results screen via Esc goes to the
+    // title (the round is already recorded), never to a blank dead screen.
+    if (this.appState === 'title' || this.appState === 'results' || !this.session) this._toTitle('back');
   }
 
   _retry() {
     this.platform.track('retry', { mode: this.session ? this.session.config.mode : '' });
-    this.pendingConfig = this.session.config;
+    // Retry the round's raw content config (not the normalized rules config,
+    // which has lost lesson prompts, journey index, and the daily dateKey).
+    this.pendingConfig = this._roundConfig || this.session.config;
     this._beginRound('retry');
   }
 

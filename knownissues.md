@@ -6,11 +6,77 @@ alongside the game's own unit tests and a headless-Chrome boot/play smoke.
 **Fix pass 2026-09-04** (this update): all five confirmed defects triaged against the current source
 and fixed. Unit tests and the browser e2e re-run green. See `## Resolved defects`.
 
+**Fix pass 2026-09-07**: second review found and fixed a ranked-submission/progression regression,
+a double-finish of left rounds, and several smaller defects (see `## Resolved defects (2026-09-07)`).
+Unit tests (50/50) and the browser e2e re-run green, including new regression coverage.
+
+## Resolved defects (2026-09-07)
+
+### 1. Ranked daily submissions rejected; journey "Next stage" never offered — RESOLVED
+
+- **File:** `js/main.js` (`_beginRound`, `_progressRound`, `_fillResults`, `_retry`), `js/session.js`.
+- **Root cause:** progression, results, and score submission read content metadata from
+  `session.state.config`, which is the NORMALIZED config — `normalizeConfig` drops `dateKey`,
+  `index`, `lesson`, `mastery`, etc. Daily submissions therefore posted to board `daily-undefined`
+  (server: 400 board-mismatch, so ranked dailies never landed), and `cfg.index + 1 < JOURNEY.length`
+  was `NaN < 40`, so the results screen never showed the next-stage action. Retrying a lesson also
+  lost its prompt for the same reason.
+- **Fix:** the raw content config is kept for the round (`_roundConfig`, also passed into
+  `GameSession.rawConfig` and persisted in the safe snapshot for crash recovery) and used for all
+  content metadata; the normalized config remains the rules truth. `_retry` reuses it.
+- **Verified:** new e2e steps assert the Next-stage button after clearing journey stage 1 and that
+  abandoning a daily round submits exactly once to `daily-<today>`.
+
+### 2. Leaving a round finished it twice (double progression + double submission) — RESOLVED
+
+- **File:** `js/main.js` (`_leaveRound` / `_finishRound` / terminal-event timeout).
+- **Root cause:** `_leaveRound` called `_finishRound` immediately, but the ABANDON command's
+  `terminal` event had already scheduled a second `_finishRound` ~1.1s later — `totalRuns`,
+  `totalGates`, the local board, and the ranked submission were all recorded twice. The same
+  timeout could also fire into a NEW session when the player retried within the delay.
+- **Fix:** `_finishRound` runs once per session (`_finishedFor` guard), and the delayed finish
+  captures the ending session and only fires if it is still current.
+- **Verified:** e2e waits out the timer after leaving and asserts exactly one submission and a
+  `totalRuns` delta of exactly 1.
+
+### 3. `runReplay` accepted non-integer command ticks — RESOLVED
+
+- **File:** `js/rules.js:510`. Guard is now `Number.isInteger(cmd.tick)`, closing the
+  previously-suspected tick-5.5 replay skew. Regression test added.
+
+### 4. Undo left the undone flap in the replay envelope — RESOLVED
+
+- **File:** `js/session.js` (`undo`). After dropping later commands, the flap at the restored tick
+  is now popped too; a new test replays a post-undo session to an exact hash/score match.
+
+### 5. Score/save table writes could lose updates and were not atomic — RESOLVED
+
+- **File:** `server.js` (storage). Tables are cached in-process (this script owns its data dir),
+  writes are serialized through a promise queue (failure-isolated), and committed via tmp-file +
+  `rename` instead of writing the destination directly.
+
+### 6. Ghost-arc fade gradient never rendered — RESOLVED
+
+- **File:** `js/render.js` (`_buildGhostArc`). All 12 dots shared one material, so the per-dot
+  opacity loop collapsed to a single value; each dot now clones the material.
+
+### 7. Escape on the results screen stranded the player on a blank dead screen — RESOLVED
+
+- **File:** `js/main.js` (`_backFromScreen`, Escape handling). Results now backs out to the title;
+  Escape on settings/help opened over pause returns to the pause screen.
+
+### 8. Smaller fixes — RESOLVED
+
+- `js/store.js` (`mergeSaves`): `tutorialDone` is now carried from either side of a merge.
+- `index.html`: removed a leftover duplicate inline placeholder favicon (the game-specific
+  `favicon.svg` remains the single icon).
+- `LICENSE.md`: added (PolyForm Noncommercial 1.0.0), as required by the root instructions.
+
 ## Test results
 
 | Check | Result |
 | --- | --- |
-| `npm test` (node --test) | 47/47 pass, 0 fail |
+| `npm test` (node --test) | 47/47 pass, 0 fail (2026-09-04); 50/50 pass, 0 fail (2026-09-07) |
 | `node --check` on all modules | clean (`js/*.js`, `server.js`, `tests/*.mjs`) |
 | `tests/e2e.mjs` (`npm run test:e2e`, headless Chrome) | present. PASS on desktop + mobile, no page/console errors, exit 0. |
 | Directory-request smoke (`GET /js`, `/css`, `/vendor`) | all 404; server stays up (`GET /api/v1/time` still 200, process alive) |
@@ -112,25 +178,14 @@ and fixed. Unit tests and the browser e2e re-run green. See `## Resolved defects
   product decision, not something the source settles. Every such entry is honestly marked
   `validated: false`, and the board response sets `casual: true`.
 
-### 2. `runReplay` accepts non-integer command ticks
+### 2. `runReplay` accepts non-integer command ticks — RESOLVED 2026-09-07
 
-- **File:** `js/rules.js:506`
-- **Concern:** the guard is `typeof cmd.tick !== 'number'`, not `Number.isInteger`. A `tick: 5.5`
-  passes, and the `while (state.tick < cmd.tick)` loop at line 509 steps to 6, applying the command one
-  tick late relative to the original session.
-- **Why unconfirmed:** `js/session.js` only ever records integer ticks, so producing such an envelope
-  requires a hand-crafted submission, and it would then fail the hash comparison at line 511 in most
-  cases. I did not construct one that both survives the hash check and changes the score.
+- Now guarded with `Number.isInteger` (`js/rules.js`); see `## Resolved defects (2026-09-07)` #3.
 
-### 3. Score/save tables are read-modify-written per request without locking
+### 3. Score/save tables are read-modify-written per request without locking — RESOLVED 2026-09-07
 
-- **File:** `server.js:42-51, 122-123`
-- **Concern:** every API request calls `loadTable('scores')` and `loadTable('saves')` and handlers write
-  the whole table back. Two overlapping submissions can each read the same snapshot and the later write
-  discards the earlier one. `saveTable` also writes a `.tmp` file and then writes the destination
-  directly (lines 48-50) rather than renaming, so the temporary file buys no atomicity.
-- **Why unconfirmed:** demonstrating the lost update needs deterministic interleaving of two in-flight
-  requests, which I could not arrange reliably against the single-process server.
+- Tables are now cached in-process, writes serialized and committed atomically via rename
+  (`server.js`); see `## Resolved defects (2026-09-07)` #5.
 
 ## Checked, no defects found
 
