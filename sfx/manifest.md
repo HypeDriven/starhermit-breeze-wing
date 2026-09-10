@@ -17,3 +17,7 @@ Generated with MOSS-SoundEffect v2.0, 48 kHz mono Opus (96 kbps VBR, loudness-no
 | countdown-go.opus | countdown:final | A higher bright go beep with a slight sparkle tail, an energetic start signal chime. |
 | achievement-sparkle.opus | achievement | A shimmering achievement-unlock arpeggio of tiny bells rising in three steps with a glittering tail, a magical reward. |
 | undo-rewind.opus | undo | A short downward rewind swoop, a tape-rewind-like descending whirr, soft and quick. |
+| ambience-wind.opus | ambience:day | Soft continuous high-altitude wind moving gently past, airy and warm with faint distant wind chimes, a calm daytime sky ambience loop, smooth and even with no gusts. |
+| ambience-night.opus | ambience:night | Quiet still night-sky ambience: a very soft low wind hush with sparse faraway crickets and an occasional tiny glassy twinkle, calm and even, gentle starlit loop. |
+| streak-rise.opus | streak | A quick rising three-note bell run climbing upward with a bright shimmering tail, a short escalating combo streak chime, precise and rewarding. |
+| best-sting.opus | best | A warm celebratory personal-best sting: a soft brass swell rising into a bright bell ping with a gentle sparkle tail, proud and brief. |

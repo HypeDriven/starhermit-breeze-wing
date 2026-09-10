@@ -34,7 +34,7 @@ const MIME = {
   '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.txt': 'text/plain; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
-  '.opus': 'audio/ogg',
+  '.opus': 'audio/ogg', '.webp': 'image/webp', '.glb': 'model/gltf-binary',
   '.webmanifest': 'application/manifest+json',
 };
 
@@ -256,7 +256,10 @@ const server = http.createServer(async (req, res) => {
     let path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
     if (path.includes('..')) { res.writeHead(403); return res.end(); }
     if (path === '') path = 'index.html';
-    if (path.endsWith('.map') || path === 'spec.md' || path.startsWith('data/') || path.startsWith('tests/')) {
+    // Never serve dev tooling, tests, runtime data, docs, source maps or dotfiles.
+    if (path.endsWith('.map') || path === 'spec.md' || path === 'knownissues.md' ||
+        path.startsWith('data/') || path.startsWith('tests/') || path.startsWith('tools/') ||
+        path.startsWith('node_modules/') || path.split('/').some((seg) => seg.startsWith('.'))) {
       res.writeHead(404); return res.end();
     }
     const file = join(ROOT, path);
@@ -266,7 +269,7 @@ const server = http.createServer(async (req, res) => {
     if (!existsSync(file) || statSync(file).isDirectory()) {
       res.writeHead(404); return res.end('not found');
     }
-    const immutable = /\.(js|css|png|svg)$/.test(file);
+    const immutable = /\.(js|css|png|svg|webp|opus)$/.test(file);
     res.writeHead(200, {
       'Content-Type': MIME[extname(file)] || 'application/octet-stream',
       'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',

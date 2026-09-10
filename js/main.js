@@ -312,8 +312,11 @@ class App {
     }
     if (['daily', 'chase', 'practice', 'challenge'].includes(cfg.mode)) {
       if ((p.best[cfg.id] || 0) < s.score.total) {
+        const hadBest = (p.best[cfg.id] || 0) > 0;
         p.best[cfg.id] = s.score.total;
         if (cfg.mode === 'daily' || cfg.mode === 'chase') extras.push('New personal best!');
+        // Sting only when an existing best is beaten; a first score is not a record.
+        if (hadBest && s.score.total > 0) this.audio.event('best');
       }
     }
 
@@ -429,6 +432,7 @@ class App {
           break;
         case 'centered':
           this.audio.event('centered');
+          if (e.streak >= 3) this.audio.event('streak', { streak: e.streak });
           this._haptic(20);
           if (e.streak >= 2) this.ui.announce(`Centered! Streak ${e.streak}.`);
           break;

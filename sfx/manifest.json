@@ -76,5 +76,29 @@
     "seconds": 1,
     "prompt": "A short downward rewind swoop, a tape-rewind-like descending whirr, soft and quick.",
     "event": "undo"
+  },
+  {
+    "name": "ambience-wind",
+    "seconds": 12,
+    "prompt": "Soft continuous high-altitude wind moving gently past, airy and warm with faint distant wind chimes, a calm daytime sky ambience loop, smooth and even with no gusts.",
+    "event": "ambience:day"
+  },
+  {
+    "name": "ambience-night",
+    "seconds": 12,
+    "prompt": "Quiet still night-sky ambience: a very soft low wind hush with sparse faraway crickets and an occasional tiny glassy twinkle, calm and even, gentle starlit loop.",
+    "event": "ambience:night"
+  },
+  {
+    "name": "streak-rise",
+    "seconds": 1,
+    "prompt": "A quick rising three-note bell run climbing upward with a bright shimmering tail, a short escalating combo streak chime, precise and rewarding.",
+    "event": "streak"
+  },
+  {
+    "name": "best-sting",
+    "seconds": 2,
+    "prompt": "A warm celebratory personal-best sting: a soft brass swell rising into a bright bell ping with a gentle sparkle tail, proud and brief.",
+    "event": "best"
   }
 ]

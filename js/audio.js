@@ -25,6 +25,10 @@ const AUTHORED_SFX_BY_EVENT = Object.freeze({
   'countdown:final': 'countdown-go',
   achievement: 'achievement-sparkle',
   undo: 'undo-rewind',
+  streak: 'streak-rise',
+  best: 'best-sting',
+  'ambience:day': 'ambience-wind',
+  'ambience:night': 'ambience-night',
 });
 
 export class AudioEngine {
@@ -123,15 +127,19 @@ export class AudioEngine {
     } catch { return false; }
   }
 
+  /** Lazy fetch+decode. Resolves to the AudioBuffer, or null when unavailable. */
   _loadSample(name) {
-    if (this._sfxFailed.has(name) || this._sfxPending.has(name) || !this.ctx) return;
+    if (!this.ctx || this._sfxFailed.has(name)) return Promise.resolve(null);
+    if (this._sfxBuffers.has(name)) return Promise.resolve(this._sfxBuffers.get(name));
+    if (this._sfxPending.has(name)) return this._sfxPending.get(name);
     const p = fetch(`sfx/${name}.opus`)
       .then((r) => { if (!r.ok) throw new Error(`http-${r.status}`); return r.arrayBuffer(); })
       .then((ab) => this.ctx.decodeAudioData(ab))
-      .then((buf) => { this._sfxBuffers.set(name, buf); })
-      .catch(() => { this._sfxFailed.add(name); })
+      .then((buf) => { this._sfxBuffers.set(name, buf); return buf; })
+      .catch(() => { this._sfxFailed.add(name); return null; })
       .finally(() => { this._sfxPending.delete(name); });
     this._sfxPending.set(name, p);
+    return p;
   }
 
   setCaptionSink(fn) { this._captionSink = fn; }
@@ -252,6 +260,16 @@ export class AudioEngine {
       case 'undo':
         this._tone('effects', { freq: 500, freqEnd: 300, type: 'sine', attack: 0.004, decay: 0.1, gain: 0.1 });
         break;
+      case 'streak': {
+        // Escalating three-note run; pitch climbs with the streak length (capped).
+        const lift = Math.min(6, (detail.streak || 3) - 3) * 40;
+        [880, 1109, 1319].forEach((f, i) => this._tone('effects', { freq: (f + lift) * v, type: 'sine', attack: 0.004, decay: 0.14, gain: 0.14, delay: i * 0.055 }));
+        break;
+      }
+      case 'best':
+        this._tone('effects', { freq: 392, freqEnd: 784, type: 'triangle', attack: 0.02, decay: 0.35, gain: 0.16 });
+        this._tone('effects', { freq: 1568, type: 'sine', attack: 0.006, decay: 0.4, gain: 0.12, delay: 0.3 });
+        break;
       default: break;
     }
     this._captionFor(type, detail);
@@ -264,6 +282,7 @@ export class AudioEngine {
         : detail.reason === 'time-up' ? 'jingle: time up' : 'fanfare: stage clear',
       invalid: 'low buzz: action unavailable', countdown: detail.final ? 'beep: go' : 'beep',
       achievement: 'sparkle: achievement unlocked', start: 'rising tone: takeoff', undo: 'soft rewind',
+      streak: `rising bells: streak ${detail.streak || ''}`.trim(), best: 'warm sting: new personal best',
     };
     if (map[type]) this._caption(`[${map[type]}]`);
   }
@@ -287,13 +306,41 @@ export class AudioEngine {
       const g = this.ctx.createGain(); g.gain.value = 0.5;
       src.connect(f); f.connect(g); g.connect(this.buses.ambience);
       src.start();
-      this._ambNodes = { src, g };
+      this._ambNodes = { src, g, loop: null, loopGain: null };
+      this._startAuthoredAmbience(theme, this._ambNodes);
     } catch { /* ambience is optional */ }
+  }
+
+  /**
+   * Cross-fade the authored ambience loop (sfx/ambience-*.opus) in over the
+   * synth wind bed once it has decoded. The bed stays as the fallback: if the
+   * clip is missing or the session ended meanwhile, nothing changes.
+   */
+  _startAuthoredAmbience(theme, nodes) {
+    const key = theme === 'night' ? 'ambience:night' : 'ambience:day';
+    const name = this._sfxMap && this._sfxMap.get(key);
+    if (!name) return;
+    Promise.resolve(this._loadSample(name)).then((buf) => {
+      if (!buf || this._ambNodes !== nodes || !this.ctx) return;
+      try {
+        const t0 = this.ctx.currentTime;
+        const loop = this.ctx.createBufferSource();
+        loop.buffer = buf; loop.loop = true;
+        const lg = this.ctx.createGain();
+        lg.gain.setValueAtTime(0.0001, t0);
+        lg.gain.exponentialRampToValueAtTime(0.9, t0 + 2.5);
+        loop.connect(lg); lg.connect(this.buses.ambience);
+        loop.start(t0);
+        nodes.g.gain.setTargetAtTime(0.12, t0, 1.2); // duck the synth bed under the loop
+        nodes.loop = loop; nodes.loopGain = lg;
+      } catch { /* keep the synth bed */ }
+    });
   }
 
   stopAmbience() {
     if (this._ambNodes) {
       try { this._ambNodes.src.stop(); } catch { /* already stopped */ }
+      try { this._ambNodes.loop && this._ambNodes.loop.stop(); } catch { /* already stopped */ }
       this._ambNodes = null;
     }
   }

@@ -1,0 +1,21 @@
+# Breeze Wing — SFX manifest (canonical)
+# file | event id | description of the sound | usage context
+# Event ids are the keys of AUDIO_SFX_BY_EVENT in js/audio.js (runtime map also read from sfx/manifest.json).
+# All clips: MOSS-SoundEffect v2.0, 48 kHz mono Opus 96 kbps, loudness-normalised (-20 LUFS), 100 steps.
+sfx/flap-whoosh.opus | flap | Single soft wing-flap whoosh, airy feathers cutting wind, light storybook tone (1 s) | Every accepted FLAP command (js/main.js _onSessionEvents 'flap'); plays on the effects bus, 8 ms haptic pulse alongside
+sfx/takeoff-rise.opus | start | Rising wind sweep ending in a soft chime, cheerful takeoff (2 s) | First flap of a round moves READY -> ACTIVE ('start' event from rules.applyCommand)
+sfx/gate-pass-chime.opus | pass | Bright two-note crystalline mallet chime with short shimmer (1 s) | Bird clears a gate ('pass' event from rules.step); every gate, centered or not
+sfx/centered-sparkle.opus | centered | Ascending glockenspiel glitter, magical and precise (1 s) | Pass within the inner 25% of the gap ('centered' event); layered over gate-pass-chime
+sfx/streak-rise.opus | streak | Quick rising three-note bell run with a shimmering tail (1 s) | Centered pass that brings the streak to 3 or more (main.js fires 'streak' with {streak}); synth fallback climbs in pitch with streak length
+sfx/clear-fanfare.opus | terminal:cleared | Short triumphant brass-and-bell fanfare rising through four notes (3 s) | Terminal reason 'cleared' (goal met: gates/flaps/score/survive or finite gate count)
+sfx/time-up-fanfare.opus | terminal:time-up | Gentle upbeat completion jingle, warm bells resolving upward (2 s) | Terminal reason 'time-up' (timeLimitTicks reached without meeting a non-endless goal)
+sfx/crash-thud.opus | terminal:crash | Soft low thud, muffled splash, descending disappointed wobble, never harsh (2 s) | Terminal reasons floor / ceiling / gate / move-limit / abandon (any non-clear ending); camera shake 1.0 and orange debris burst alongside
+sfx/best-sting.opus | best | Warm brass swell into a bright bell ping with a sparkle tail (2 s) | Results screen when a previously recorded personal best for daily/chase/practice/challenge content is beaten (main.js _progressRound)
+sfx/achievement-sparkle.opus | achievement | Three-step rising bell arpeggio with glittering tail (2 s) | Each achievement unlocked during _progressRound; results panel shows the unlocked list
+sfx/invalid-buzz.opus | invalid | Short low muted wooden bonk, soft interface denial (1 s) | Rejected command ('invalid' event: no-moves-remaining / session-over); toast + assertive live-region text carry the reason; plays on the voice (cues) bus
+sfx/undo-rewind.opus | undo | Short descending tape-rewind whirr, soft and quick (1 s) | Practice-mode undo (U key or HUD Undo button) restores the pre-flap snapshot
+sfx/countdown-beep.opus | countdown | Single clear mid-pitch electronic beep, short and round (1 s) | Countdown '3', '2', '1' before every round (700 ms apart); voice bus
+sfx/countdown-go.opus | countdown:final | Higher bright go beep with a sparkle tail (1 s) | Countdown 'Go!' step; play becomes active 600 ms later
+sfx/ui-tick.opus | ui | Tiny clean wooden click tick, minimal menu selection (1 s) | Every button click bound through _bindUI, setup option picks, and pause entry
+sfx/ambience-wind.opus | ambience:day | Soft continuous high-altitude wind with faint distant chimes, no gusts (12 s loop) | startAmbience(theme) for dawn/day/dusk/aurora rounds; cross-fades in over the synth wind bed 2.5 s after decode; ambience bus
+sfx/ambience-night.opus | ambience:night | Quiet night hush, sparse far crickets, occasional glassy twinkle (12 s loop) | startAmbience('night') for Starlit Drift rounds (journey stages 25-32, Tempest practice, Needle Threader, and dailies on night days); ambience bus

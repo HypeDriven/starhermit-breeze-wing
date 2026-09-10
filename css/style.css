@@ -106,6 +106,15 @@ body.reduced-motion .tap-hint { animation: none; }
 .panel p, .panel li, .panel dd, .panel label { max-width: 70ch; }
 .blurb { color: var(--ink-soft); }
 
+.title-emblem {
+  width: 108px; height: 108px; border-radius: 50%; object-fit: cover; display: block;
+  margin: 0 auto 6px; box-shadow: 0 4px 14px rgba(20,30,50,0.18);
+}
+.results-art {
+  display: block; width: calc(100% + 52px); margin: -22px -26px 12px; height: auto;
+  max-height: 120px; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0;
+}
+body.high-contrast .title-emblem, body.high-contrast .results-art { display: none; }
 .game-logo { font-size: 2.6rem; letter-spacing: 0.02em; margin-bottom: 4px; }
 .game-logo span { color: var(--accent); }
 .tagline { margin-top: 0; color: var(--ink-soft); }
@@ -241,6 +250,7 @@ select { font: inherit; padding: 8px; border-radius: 8px; border: 2px solid rgba
     max-height: 78vh;
   }
   .title-panel { border-radius: var(--radius); margin: 12px; max-height: calc(100vh - 24px); }
+  .results-art { margin: -22px -26px 10px; max-height: 96px; }
   .hud-score { font-size: 1.7rem; }
 }
 
@@ -251,6 +261,8 @@ select { font: inherit; padding: 8px; border-radius: 8px; border: 2px solid rgba
   .panel { max-height: calc(100vh - 16px); padding: 14px 18px; }
   .game-logo { font-size: 1.8rem; }
   .countdown { font-size: 4rem; }
+  .title-emblem { width: 64px; height: 64px; }
+  .results-art { display: none; }
 }
 
 /* Left-handed: mirror HUD rails. */

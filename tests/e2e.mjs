@@ -33,7 +33,7 @@ const MIME = {
   '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.ico': 'image/x-icon', '.wav': 'audio/wav', '.mp3': 'audio/mpeg',
-  '.ogg': 'audio/ogg', '.opus': 'audio/ogg', '.glb': 'model/gltf-binary',
+  '.ogg': 'audio/ogg', '.opus': 'audio/ogg', '.glb': 'model/gltf-binary', '.webp': 'image/webp',
   '.woff2': 'font/woff2', '.ts': 'video/mp2t', '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json',
 };
