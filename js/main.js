@@ -72,8 +72,10 @@ class App {
 
     // Hosted handshake (graceful offline fallback).
     const boot = await this.platform.init();
-    this.platform.telemetryConsent = !!this.settings.telemetryConsent;
-    this.ui.setProfileChip(this.platform.profile, this.platform.hosted);
+    this.ui.setProfileChip(this.platform.profile, this.platform.hosted, this.platform.sync);
+    this.platform.onSync(() => {
+      this.ui.setProfileChip(this.platform.profile, this.platform.hosted, this.platform.sync);
+    });
     if (boot.mode === 'degraded') this.ui.toast('Playing offline — progress stays on this device.');
 
     // Renderer.
@@ -91,10 +93,6 @@ class App {
 
     // Cloud save conflict resolution (hosted accounts only).
     await this._syncCloud();
-
-    // Activity + presence lifecycle.
-    this.platform.activityStart();
-    this.platform.startPresence();
 
     // Mid-round crash recovery.
     const snap = GameSession.loadSafeSnapshot(localStorage);
@@ -157,7 +155,6 @@ class App {
     this.ui.buildJourneyGrid(this.progress, (i) => this._openSetup(JOURNEY[i]));
     this.ui.el.dailySub.textContent = this._dailyDone() ? 'done today ✓' : "today's shared sky";
     this.audio.setMusicIntensity(0.2);
-    this.platform.track('start', { mode: 'title', reason });
   }
 
   _dailyDone() {
@@ -210,7 +207,6 @@ class App {
     this._hudUpdate();
     this.ui.show('countdown');
     this.ui.announce(`${cfg.name}. Get ready.`);
-    this.platform.track('start', { mode: cfg.mode });
 
     // Countdown (interruptible): 3·2·1·go — timers owned here.
     const prompt = cfg.lesson ? cfg.lesson.prompt : 'Flap to take off!';
@@ -281,7 +277,6 @@ class App {
     this.ui.show('results');
     this.audio.setMusicIntensity(0.2);
     this.ui.announce(`${won ? 'Stage clear' : 'Flight ended'}. Score ${s.score.total}.`);
-    this.platform.track('round_end', { mode: s.config.mode, reason: s.terminal ? s.terminal.reason : reason });
     this.persist();
   }
 
@@ -370,6 +365,7 @@ class App {
         durationTicks: s.tick, envelope: this.session.envelope,
       }).then((r) => {
         if (r.ok) this.ui.toast(r.validated ? `Score verified — rank #${r.rank ?? '?'}` : 'Score submitted (casual board).');
+        else if (r.reason === 'leaderboard-readonly') this.ui.toast('Score kept as a personal best — platform boards are read-only.');
         else this.ui.toast('Score kept locally — will submit when online.');
       });
     }
@@ -653,7 +649,6 @@ class App {
     });
     window.addEventListener('pagehide', () => {
       if (this.session) this.session.saveSafeSnapshot(localStorage);
-      this.platform.activityEnd();
     });
 
     // Resize/orientation/DPR without losing input or restarting.
@@ -678,7 +673,6 @@ class App {
   }
 
   _retry() {
-    this.platform.track('retry', { mode: this.session ? this.session.config.mode : '' });
     // Retry the round's raw content config (not the normalized rules config,
     // which has lost lesson prompts, journey index, and the daily dateKey).
     this.pendingConfig = this._roundConfig || this.session.config;
@@ -853,7 +847,6 @@ class App {
       this.persist();
       this._applySettings();
       if (apply) apply(e.target.checked);
-      this.platform.track('settings_change', { step: key });
     });
     bindCheck('set-muted', 'muted', (v) => this.audio.setMuted(v));
     bindCheck('set-motion', 'reducedMotion', (v) => this.renderer.setReducedMotion(v));
@@ -862,12 +855,10 @@ class App {
     bindCheck('set-lefty', 'leftHanded');
     bindCheck('set-arc', 'assistArc', (v) => this.renderer.setAssistArc(v));
     bindCheck('set-haptics', 'haptics');
-    bindCheck('set-telemetry', 'telemetryConsent', (v) => { this.platform.telemetryConsent = v; });
     $('set-tier').addEventListener('change', (e) => {
       s().graphicsTier = e.target.value;
       this.persist();
       this.renderer.setQuality(s().graphicsTier);
-      this.platform.track('settings_change', { tier: s().graphicsTier });
     });
     $('set-palette').addEventListener('change', (e) => {
       s().colorPalette = e.target.value;

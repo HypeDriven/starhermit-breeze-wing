@@ -30,7 +30,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | `js/render.js` | Three.js scene: bird, gates, islands, clouds, sky dome, particles, ghost arc, camera, quality tiers |
 | `js/audio.js` | WebAudio engine: four buses, authored Opus one-shots + loops with procedural fallbacks, captions, adaptive music |
 | `js/ui.js` | Screen switching, focus restore, live regions, HUD, setup/results/journey/achievements/board fills |
-| `js/platform.js` | StarHermit adapter: launch token, `/api/v1/*` calls, time sync, presence, activity, cloud save, scores, telemetry |
+| `js/platform.js` | StarHermit adapter: fragment launch token + Bearer + 45-min refresh, profile nickname, cloud-save slot (zip+base64, debounced, sync status), read-only platform leaderboard |
 | `js/store.js` | Versioned, checksummed local save document; migration; conflict helpers |
 | `js/main.js` | `App`: state machine, fixed-step loop, input, lifecycle, progression, achievements, UI wiring |
 | `server.js` | StarHermit game script (`server=server.js`): static serving + authoritative replay-validated scores, saves, time |
@@ -367,26 +367,26 @@ truncation.
 ## 12. StarHermit integration
 
 Manifest `starhermit.txt`: `name=Breeze Wing`, `launch=index.html`, `owner=…`, `server=server.js`,
-`version=1.0.0`, `cover=coverart.png`. The client is hosted when a `?launch=` (or `?token=`) launch
-token is present; it is sent as `Authorization: Bearer` and never persisted. Without a token the
-game runs as an offline guest with local saves.
+`version=1.0.0`, `cover=coverart.png`. The client is hosted when a launch token was read — it
+arrives in the URL fragment `#game_token=<jwt>` (optional `&session_id=`), is stripped after the
+read, and is sent as `Authorization: Bearer` on every hosted call, never persisted. It is re-minted
+every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry); the slug comes from the
+JWT's `game_scope` and is never hard-coded. Without a token the game makes zero `/api` calls and
+runs as an offline guest with local saves.
 
 | Feature | Used | How |
 |---|---|---|
-| Identity / profile | Yes | `GET /api/v1/me` → name (≤40 chars, hidden profiles stay "Guest"); shown in the profile chip |
+| Identity / profile | Yes | `GET /api/v1/users/{sub}/profile` → nickname (never `/api/v1/me`, never usernames; `Player <id8>` fallback); shown in the profile chip with cloud-sync status (offline/saving/synced) |
 | Server time | Yes | `GET /api/v1/time`, round-trip-adjusted offset; drives the daily key and "done today" |
-| Presence | Yes | `POST /api/v1/presence` `playing` every 30 s, `idle` on stop |
-| Activity | Yes | `POST /api/v1/activity/start` at boot, `/end` on `pagehide` |
-| Cloud save | Yes | `GET/PUT /api/v1/save` with the checksummed doc; conflict → strict-descendant auto-resolve or Conflict screen (keep device / keep cloud / merge) |
-| Leaderboards | Yes | `POST /api/v1/scores` with ruleset, contentVersion, seed, assists, durationTicks, replay envelope; `GET /api/v1/scores?board=daily-<date>[&friends=1]` |
-| Achievements | Local | Unlocked and stored in the save document; `GET /api/v1/achievements` only lists metadata |
-| Telemetry | Opt-in | `POST /api/v1/telemetry` for start / tutorial_step / round_end / retry / settings_change / error with whitelisted fields |
+| Presence / activity / telemetry | No | No per-game endpoints exist for launch tokens (wiki); the client deliberately never calls them |
+| Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/{slug}`; remote wins on boot (strict-descendant auto-resolve or Conflict screen), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache |
+| Leaderboards | Read-only | Clients never submit (wiki). Read via `GET /api/v1/games/{slug}` → `leaderboardId` → `GET /api/v1/leaderboards/{id}/entries[?friendsOnly=]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
+| Achievements | Local | Unlocked and stored in the save document (part of the cloud-saved doc); no platform unlock endpoint is called |
 | Game script | Yes | `server.js` rebuilds the immutable content for `daily-*` / `chase-*`, rejects stale `contentVersion`, seed or board mismatches, replays the envelope through `js/rules.js`, labels entries `validated` or casual (plausibility-checked), keeps 200 per board, rate-limits 120 req/min per identity, 256 KB bodies, atomic table writes |
-| Realtime rooms, matchmaking, chat, voice, invitations | No | Solo game; friends filtering uses the host's `x-friends` header only |
+| Realtime rooms, matchmaking, chat, voice, invitations | No | Solo game |
 
-Conventions follow https://wiki.starhermit.com/ (same-origin `/api/v1`, `x-player-id` /
-`x-player-name` identity headers from the host shell, structured `{"error": …}` responses,
-`Retry-After` on 429).
+Conventions follow https://wiki.starhermit.com/ (same-origin `/api/v1`, `Authorization: Bearer`
+with the launch token, structured `{"error": …}` responses, `Retry-After` on 429).
 
 ## 13. Technical architecture
 
@@ -463,8 +463,8 @@ board; `node --check` passes on every JS/MJS file.
 - Challenge "Perfect Line" declares `goalExtra {centeredPasses: 5}` but the rules ignore it: the
   challenge clears after 8 gates regardless of centred passes.
 - Journey stages are never locked; the `.jstage.locked` style is unused.
-- Hosted paths (`/api/v1/me`, save conflict, presence, friends filter) are exercised only by the
-  server unit tests; no host shell is available locally, and the e2e plays as an offline guest.
+- Hosted paths (cloud save, save conflict, platform leaderboard, friends filter) are exercised only by ad-hoc
+  harnesses; no host shell is available locally, and the e2e plays as an offline guest (zero `/api` calls).
 - The audio caption pill (bottom-anchored) can overlap the results buttons for about a second on
   portrait phones when an achievement cue fires as the results sheet opens.
 - English only (see §10). Audio output is untested in headless Chrome.

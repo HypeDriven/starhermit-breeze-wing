@@ -278,12 +278,16 @@ export class UI {
     $('set-lefty').checked = !!s.leftHanded;
     $('set-arc').checked = s.assistArc !== false;
     $('set-haptics').checked = s.haptics !== false;
-    $('set-telemetry').checked = !!s.telemetryConsent;
   }
 
-  setProfileChip(profile, hosted) {
-    this.el.profileChip.textContent = profile.guest
-      ? 'Guest — progress saves locally'
-      : `${profile.name} — cloud save ${hosted ? 'on' : 'off'}`;
+  setProfileChip(profile, hosted, sync) {
+    if (profile.guest) {
+      this.el.profileChip.textContent = 'Guest — progress saves locally';
+      return;
+    }
+    const syncTxt = sync === 'synced' ? 'cloud save synced'
+      : sync === 'saving' ? 'saving…'
+      : 'cloud save offline';
+    this.el.profileChip.textContent = `${profile.name} — ${syncTxt}${hosted ? '' : ' (offline)'}`;
   }
 }
