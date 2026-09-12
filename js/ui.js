@@ -47,6 +47,8 @@ export class UI {
       if (el) el.hidden = id !== `screen-${name}`;
     }
     this._current = name;
+    // Gameplay guidance never lingers over a screen's text or actions.
+    if (name && name !== 'countdown') this.clearTransients();
     if (name && name !== 'countdown') {
       const panel = $(`screen-${name}`);
       const focusable = panel && panel.querySelector('button, input, select, [tabindex]');
@@ -75,6 +77,13 @@ export class UI {
     c.classList.add('show');
     clearTimeout(this._captionTimer);
     this._captionTimer = setTimeout(() => c.classList.remove('show'), 1200);
+  }
+
+  clearTransients() {
+    clearTimeout(this._toastTimer);
+    clearTimeout(this._captionTimer);
+    this.el.toast.hidden = true;
+    this.el.audioCaptions.classList.remove('show');
   }
 
   toast(text, ms = 2400) {
