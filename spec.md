@@ -15,7 +15,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | Players | 1; asynchronous comparison through daily and score-chase leaderboards |
 | Session length | 20–90 s per round; a sitting is typically 3–10 rounds (5–15 min) |
 | Platforms | Desktop and mobile browsers with WebGL; landscape and portrait |
-| Rendering | Three.js (`vendor/three.module.js`) procedural 3D scene behind a semantic HTML/CSS shell; no textures, no post-processing |
+| Rendering | Three.js r160 (`vendor/three.module.js` + same-revision `vendor/addons/`) procedural 3D scene behind a semantic HTML/CSS shell; no image textures; optional post-processing chosen by graphics presets (§13 Graphics) |
 | Simulation | Fixed 60 Hz step, deterministic, seeded; rules run identically in browser and Node |
 
 ### File map
@@ -27,7 +27,10 @@ points, but the middle of the gate is where streaks and scores are made.
 | `js/rules.js` | Pure rules engine: config normalisation, RNG, gate stream, `step`, `applyCommand`, scoring, hashing, replay |
 | `js/content.js` | Versioned content: 5 themes, difficulty recipe, 40 Journey stages, 5 lessons, 5 challenges, daily/chase generators, 3 practice presets, 8 achievements, offline validators |
 | `js/session.js` | `GameSession`: owns live rules state, command log, undo snapshots, replay envelope, safe snapshot |
-| `js/render.js` | Three.js scene: bird, gates, islands, clouds, sky dome, particles, ghost arc, camera, quality tiers |
+| `js/render.js` | Three.js scene: bird, gates, islands, clouds, sky dome, sea, particles, motes, ghost arc, camera; applies graphics settings live (shadows, sky-based IBL, post chain, pixel ratio, adaptive resolution) |
+| `js/gfx.js` | Pure graphics quality model: presets, categories, GPU detection, `resolve`, `presetTier`, `choosePreset`, `describe`, per-device storage |
+| `js/gfx-ui.js` | Settings → Graphics section: builds and localizes the controls (9 locales), persists and applies changes |
+| `vendor/addons/` | three.js r160 (0.160.1) post-processing passes and shaders: EffectComposer, RenderPass, ShaderPass, OutputPass, UnrealBloomPass, SMAAPass, FXAAShader and their imports; resolved through the `index.html` import map |
 | `js/audio.js` | WebAudio engine: four buses, authored Opus one-shots + loops with procedural fallbacks, captions, adaptive music |
 | `js/ui.js` | Screen switching, focus restore, live regions, HUD, setup/results/journey/achievements/board fills |
 | `js/platform.js` | StarHermit adapter: fragment launch token + Bearer + 45-min refresh, profile nickname, cloud-save slot (zip+base64, debounced, sync status), read-only platform leaderboard |
@@ -37,7 +40,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | `sfx/*.opus`, `sfx/manifest.txt` | 17 authored clips; canonical `file \| event \| description \| usage` manifest (`manifest.json` feeds the generator and the runtime map) |
 | `assets/title-emblem.webp`, `assets/results-horizon.webp` | Storybook illustrations used by the title and results panels |
 | `coverart.png`, `icon.png`, `favicon.svg` | Platform cover (16:9) and icons |
-| `tests/rules.test.mjs`, `tests/store.test.mjs`, `tests/server.test.mjs` | `npm test` (node:test, no dependencies) |
+| `tests/rules.test.mjs`, `tests/store.test.mjs`, `tests/server.test.mjs`, `tests/gfx.test.mjs` | `npm test` (node:test, no dependencies) |
 | `tests/e2e.mjs` | Real-UI playthrough in headless Chrome via `playwright-core` (`npm run test:e2e`) |
 | `knownissues.md`, `LICENSE.md` | QA history; PolyForm Noncommercial 1.0.0 |
 
@@ -273,10 +276,11 @@ islands, gates, clouds, bird and wing:
 | Starlit Drift | `#0d1330` / `#4a5b9e` | `#50c8c0` / `#d8fffa` | `#e8f0ff` / `#7fe0d8` |
 | Aurora Vale | `#1e4a5e` / `#c8f4e0` | `#40d890` / `#eafff4` | `#f4fffa` / `#6fe8b0` |
 
-**Shape language.** Rounded, plump, flat-shaded: sphere-built bird with tapered wing pods and a
-cone beak; gates are tapered cylinders with a glowing ring trim (emissive 0.25, 0.5 on the next
-gate); islands are inverted cones with grass caps and tufts; clouds are icosahedron clusters at
-85 % opacity. The **hero** is the bird at `x = 0` framed by the two nearest pillars; the camera
+**Shape language.** Rounded, plump, low-poly: sphere-built bird with tapered wing pods and a
+cone beak; gates are tapered cylinders with a glowing ring trim (emissive 0.25; the next gate's
+trim glows at 0.5, or 1.25 with a slow shimmer when bloom is active); islands are flat-shaded
+inverted cones with grass caps and tufts; clouds are opaque, softly self-lit icosahedron clusters
+(smooth and slightly flattened at Surface detail: Detailed). The **hero** is the bird at `x = 0` framed by the two nearest pillars; the camera
 (FOV 38, z 17.5, x 3.2, look-ahead 1.4) follows the bird's `y` with a damped spring and widens FOV
 in portrait so the ±9 band stays visible.
 
@@ -285,9 +289,10 @@ tabular numerals for score and breakdown; `kbd` chips for keys; 125 % scale with
 
 **Motion principles.** Simulation-driven: bird tilt from `vy`, wing kick decaying over 0.3 s,
 parallax islands/clouds scrolling at `12/depth` and `8/depth` of gate speed, sun pinned to the
-camera. Event tiers: flap puff (5) < gate burst (12; centred 26, gold `#ffe08a`) + 0.15 shake <
+camera; ambient motion (drifting cirrus, sea glints, twinkling stars, aurora ribbons, pollen or
+firefly motes, next-gate shimmer) freezes under reduced motion or `prefers-reduced-motion`. Event tiers: flap puff (5) < gate burst (12; centred 26, gold `#ffe08a`) + 0.15 shake <
 clear burst (60) / crash burst (40, `#ff6a4d`) + shake 1.0 (max 0.22 units). Reduced motion:
-particles capped at 6 per burst, no shake, ghost arc hidden, environment drift at 25 %, CSS
+particles capped at 6 per burst (bursts are 1.5× larger at Particles: High), no shake, ghost arc hidden, environment drift at 25 %, CSS
 animations/transitions off, results shown after 0.4 s.
 
 **Visual assets the design calls for:** a 16:9 cover in the storybook style (`coverart.png`), a
@@ -337,7 +342,11 @@ decoding, the procedural synth for that event plays instead, so the game is neve
 
 ## 10. Localization
 
-The shipped build is **English only**: every string is an English literal in `index.html` (screen
+The shipped build is **English only** except the Settings → Graphics section: its labels,
+preset/tier names, notes and cost summary come from `GFX_STRINGS` in `js/gfx-ui.js` for en-US,
+en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR and it-IT, chosen from `navigator.language`
+(`pickLocale`: other Spanish regions → es-419, other French → fr-FR, other Portuguese → pt-BR,
+Commonwealth English → en-GB, anything else → en-US). Everything else is an English literal in `index.html` (screen
 copy, rule cards, settings labels), `js/main.js` (`INVALID_TEXT`, result reasons, toasts, blurbs),
 `js/ui.js` (HUD/setup/board sentences) and `js/content.js` (stage, lesson, challenge and
 achievement names). `<html lang="en">` is fixed; there is no language selector and no locale
@@ -399,11 +408,67 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   is written on pause, tab hide and `pagehide`, and offered on the Away screen at next boot.
 - **Persistence:** `breezewing.save.v1` (version 1, FNV checksum; corrupt docs are archived and
   reset); `migrate` layers any doc over defaults; `isDescendant`/`mergeSaves` power conflicts.
-- **Rendering budgets (`QUALITY_TIERS`):** low — DPR 1 × 0.85, no shadows, 6 clouds, 6 islands,
-  120 particles; medium — DPR ≤ 1.75, shadows, 10/10, 400; high — DPR ≤ 2, 16/14, 900. ACES tone
-  mapping, sRGB output, one 1024² shadow map, sky dome shader, fog 40–140. `renderer.stats()`
-  exposes draw calls/triangles. WebGL context loss is handled by flagging and re-uploading on
-  restore; no WebGL → Compat screen.
+- **Graphics.** ACES filmic tone mapping (exposure 1.05) and sRGB output for everything,
+  including the sky and sea shaders (their colours are pre-saturated so the theme hues survive
+  ACES). Lighting is a key directional light plus a hemisphere fill whose ground colour is lifted
+  towards the haze so undersides never go muddy; optional PCF soft shadows from the key light use
+  an orthographic frustum fitted to the play band (±15 × ±13 units) that follows the camera in
+  half-unit steps; the bird, pillars and trims cast and receive. Optional image-based lighting
+  renders a small sky-only scene (theme gradient + HDR sun) through `PMREMGenerator` into
+  `scene.environment` on every theme change, with per-material `envMapIntensity` 0.3–0.6.
+  Detailed surfaces: glazed-terracotta pillars (`MeshPhysicalMaterial`, clearcoat 0.55 when
+  reflections are on, world-space tile courses with grout and per-tile tint), feather sheen on the
+  bird with a clearcoated beak and eye catch-lights, strata and tip-darkening vertex colours on
+  islands, smooth clouds. The sky dome runs horizon → zenith (`smoothstep(-0.25, 0.45, y)`); at
+  Sky: Detailed it adds a sun halo, drifting cirrus, twinkling stars (Starlit Drift, faint on
+  Aurora Vale) and aurora ribbons (Aurora Vale), and a sun-halo sprite. The sea is a large
+  transparent plane below the floor that fades from a deep theme tint into the exact sky colour
+  just under the horizon (no seam), with drifting glints at Sky: Detailed. Burst particles are
+  soft round sprites with per-particle alpha; gold/centred bursts are HDR so they bloom; Particles:
+  High adds 45 ambient motes (pollen by day, HDR fireflies on Starlit Drift). Post-processing
+  (`EffectComposer`, half-float target): RenderPass → UnrealBloom (strength 0.4, radius 0.45,
+  threshold 0.9: only the sun, next-gate trims, sparkles and fireflies bloom) → OutputPass →
+  colour grade (gentle S-curve, +14 % saturation, warm highlights / cool shadows, vignette 0.2) →
+  SMAA or FXAA; MSAA renders the composer target with 4 samples, or uses the canvas's native
+  MSAA when nothing else needs the composer. The composer exists only when bloom, grade, FXAA/SMAA
+  (or MSAA without native canvas AA) need it; if it cannot be built or throws, the game renders
+  directly, marks `data-gfx-post="failed"` on the canvas and the panel shows a note — nothing is
+  logged. Pixel ratio = min(devicePixelRatio, preset cap) × preset scale × render scale × adaptive
+  scale (≤ 4). Adaptive resolution averages 90 frames: > 26 ms steps the adaptive scale down 0.1
+  (min 0.6), < 14 ms back up 0.05 (max 1). `#fps-meter` (bottom-left) shows fps and the pixel
+  ratio when Show frame rate is on.
+
+  **Settings → Graphics** (`#gfx-fieldset`, reachable from the title and from pause, scrolls
+  inside the panel on phones): Quality `#gfx-preset` (Auto (detected: <tier>) / Low / Balanced /
+  High / Ultra); Render scale `#gfx-scale` 50–200 %; one select per category `#gfx-<category>`
+  defaulting to "From preset (<tier>)"; Adaptive resolution `#gfx-adaptive` (default on); Show
+  frame rate `#gfx-fps` (default off); summary `#gfx-summary` "GPU · cost summary · W×H px";
+  `#gfx-post-note` when post-processing is unavailable. Choosing a preset clears overrides. Every
+  change applies immediately (no reload) and is saved per device in localStorage
+  `breezewing.graphics.v1` (not in the cloud-saved document); a legacy `graphicsTier` of low/high
+  seeds the preset once. The canvas carries `data-gfx-preset`, `data-gfx-auto`, `data-gfx-post`;
+  `body` carries `data-gfx-preset`. Auto uses `detectPreset` on the unmasked WebGL renderer
+  string (Firefox: `RENDERER`): SwiftShader/llvmpipe/software → Low, NVIDIA/GeForce/RTX/GTX/Radeon
+  RX/Pro/Apple M → High, else Balanced; touch-first devices cap Auto at Balanced.
+
+  | Category | Tiers | Low | Balanced | High | Ultra |
+  |---|---|---|---|---|---|
+  | (pixel-ratio cap × scale) | | 1 × 0.85 | 1.75 × 1 | 2 × 1 | 2 × 1.25 |
+  | `shadows` | off / low 1024² / medium 2048² / high 4096² | off | low | medium | high |
+  | `bloom` | off / on | off | on | on | on |
+  | `grade` | off / on | off | on | on | on |
+  | `antialias` | off / fxaa / smaa / msaa | off | fxaa | smaa | msaa |
+  | `reflections` (sky IBL + clearcoat) | off / on | off | on | on | on |
+  | `sky` (halo, cirrus, stars, aurora, sea glints) | plain / detailed | plain | detailed | detailed | detailed |
+  | `scenery` (islands / clouds) | sparse 6/6, normal 10/10, rich 14/16 | sparse | normal | rich | rich |
+  | `detail` (surface materials, smoother meshes) | plain / detailed | plain | detailed | detailed | detailed |
+  | `particles` (pool, motes) | low 120/0, high 900/45 | low | low | high | high |
+
+  Low renders straight to the canvas with no extra passes, no shadows and no canvas MSAA — no more
+  work than the previous Low tier. Graphics never change rules, hitboxes or hazard visibility.
+  `renderer.stats()` exposes draw calls/triangles/preset/post; `renderer.graphicsInfo()` feeds the
+  panel. WebGL context loss is handled by flagging and re-uploading on restore (post chain and
+  environment map rebuilt); no WebGL → Compat screen.
 - **Server:** dependency-free `node:http`; static files confined to the root with `..`, `.map`,
   `spec.md`, `knownissues.md`, `data/`, `tests/`, `tools/`, `node_modules/` and dotfiles refused;
   MIME for `.opus`, `.webp`, `.glb`; immutable caching for js/css/png/svg/webp/opus; data dir
@@ -413,11 +478,19 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   journey grid → stage 1 → Space-key autopilot reading `window.__bw` state only to time real key
   presses → results → Next/Retry → pause/resume → crash → menu → settings → help → daily
   leave-round with a submission spy) and mobile 390×844 touch (Play → lesson 1 by tapping →
-  journey stage → tap pause/resume → leave). Any page error or non-benign console error fails it.
+  journey stage → tap pause/resume → leave). Both passes then drive Settings → Graphics through the
+  visible UI (Low → Ultra → High, Bloom override Off, checks `data-gfx-preset`, the resolved tier,
+  the summary text and that the panel fits the viewport, reloads to confirm persistence, then
+  returns to Auto, which must clear overrides and resolve to Low on the software GPU); mobile also
+  opens Settings from pause mid-round and toggles the frame-rate readout. Any page error or
+  non-benign console error or warning fails it.
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (51 tests, `node --test tests/*.test.mjs`): RNG determinism and `hashString`; legal
+`npm test` (62 tests, `node --test tests/*.test.mjs`): graphics model (`detectPreset` on sample
+GPU strings incl. the touch cap, `resolve` with auto/preset/override/invalid tier, render-scale
+clamp, `choosePreset` clearing overrides, every preset row valid, `describe` incl. a localized
+summary, per-device storage and legacy seeding, every locale has every panel string); RNG determinism and `hashString`; legal
 actions and every invalid reason; malformed/unknown/duplicate commands; gravity and lift;
 floor/ceiling/gate/time-up/abandon terminals; each scoring component and the time bonus; tie-break
 order; serialise/deserialise and version rejection; property sweep of seed+commands → identical

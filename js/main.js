@@ -16,6 +16,7 @@ import {
 } from './content.js';
 import { GameSession } from './session.js';
 import { Renderer } from './render.js';
+import { GraphicsPanel, initialGraphics } from './gfx-ui.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { Platform } from './platform.js';
@@ -79,10 +80,14 @@ class App {
     if (boot.mode === 'degraded') this.ui.toast('Playing offline — progress stays on this device.');
 
     // Renderer.
+    // Graphics settings are per device (they depend on this GPU), so they live
+    // in their own localStorage key rather than the cloud-saved document.
+    const gfxSaved = initialGraphics(localStorage, this.settings.graphicsTier);
     this.renderer = new Renderer($('game-canvas'), {
-      tier: this.settings.graphicsTier,
+      graphics: gfxSaved,
       reducedMotion: this.settings.reducedMotion,
     });
+    this.gfxPanel = new GraphicsPanel($('gfx-fieldset'), this.renderer, localStorage, gfxSaved, navigator.language);
     this.renderer.setAssistArc(this.settings.assistArc);
     this.audio.setCaptionSink((t) => this.ui.caption(t));
 
@@ -733,7 +738,7 @@ class App {
       this.ui.show('achievements');
     });
     on('btn-help', () => this._openHelp());
-    on('btn-settings', () => this.ui.show('settings'));
+    on('btn-settings', () => this._openSettings());
 
     // Setup.
     on('btn-setup-start', () => {
@@ -751,7 +756,7 @@ class App {
 
     // Pause.
     on('btn-resume', () => this._resume());
-    on('btn-pause-settings', () => this.ui.show('settings'));
+    on('btn-pause-settings', () => this._openSettings());
     on('btn-pause-help', () => this._openHelp());
     on('btn-pause-restart', () => this._retry());
     on('btn-leave', () => this._leaveRound());
@@ -831,6 +836,17 @@ class App {
 
   /* ============================ settings ============================ */
 
+  _openSettings() {
+    this.ui.show('settings');
+    this.gfxPanel.sync();
+    // Keep the GPU / cost / frame-rate summary live while the screen is open.
+    clearInterval(this._gfxInfoTimer);
+    this._gfxInfoTimer = setInterval(() => {
+      if ($('screen-settings').hidden) { clearInterval(this._gfxInfoTimer); return; }
+      this.gfxPanel.refreshInfo();
+    }, 1000);
+  }
+
   _bindSettings() {
     const s = () => this.settings;
     const bindRange = (id, bus) => $(id).addEventListener('input', (e) => {
@@ -855,11 +871,6 @@ class App {
     bindCheck('set-lefty', 'leftHanded');
     bindCheck('set-arc', 'assistArc', (v) => this.renderer.setAssistArc(v));
     bindCheck('set-haptics', 'haptics');
-    $('set-tier').addEventListener('change', (e) => {
-      s().graphicsTier = e.target.value;
-      this.persist();
-      this.renderer.setQuality(s().graphicsTier);
-    });
     $('set-palette').addEventListener('change', (e) => {
       s().colorPalette = e.target.value;
       this.persist();

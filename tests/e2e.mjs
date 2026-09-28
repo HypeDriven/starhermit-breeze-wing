@@ -103,6 +103,58 @@ async function flyUntilTerminal(page, { tap = false, maxMs = 90000 } = {}) {
   throw new Error(`flight did not reach a terminal state within ${maxMs}ms (last: ${JSON.stringify(last)})`);
 }
 
+/**
+ * Graphics settings through the visible Settings screen: Low → Ultra → High,
+ * one per-category override, applied live (canvas data attribute + summary),
+ * and persisted across a reload. `openSettings` opens the screen by real UI.
+ */
+async function graphicsFlow(page, vp, openSettings, closeSettings) {
+  const gfxState = () => page.evaluate(() => ({
+    canvas: document.getElementById('game-canvas').dataset.gfxPreset,
+    preset: document.getElementById('gfx-preset').value,
+    bloom: document.getElementById('gfx-bloom').value,
+    summary: document.getElementById('gfx-summary').textContent,
+    resolvedBloom: window.__bw.renderer.q.bloom,
+    post: window.__bw.renderer.stats().post,
+  }));
+  await openSettings();
+  await page.locator('#gfx-preset').scrollIntoViewIfNeeded();
+  const auto = await page.$eval('#gfx-preset option[value="auto"]', (o) => o.textContent);
+  if (!/Auto \(detected: \w+\)/.test(auto)) throw new Error(`auto label: ${auto}`);
+  await page.selectOption('#gfx-preset', 'low');
+  let st = await gfxState();
+  if (st.canvas !== 'low' || st.post) throw new Error(`low not applied: ${JSON.stringify(st)}`);
+  await page.selectOption('#gfx-preset', 'ultra');
+  await page.waitForTimeout(600); // a few frames with the full post chain
+  st = await gfxState();
+  if (st.canvas !== 'ultra' || !st.post) throw new Error(`ultra not applied: ${JSON.stringify(st)}`);
+  await page.selectOption('#gfx-preset', 'high');
+  await page.selectOption('#gfx-bloom', 'off');
+  await page.waitForTimeout(300);
+  st = await gfxState();
+  if (st.canvas !== 'high' || st.resolvedBloom !== 'off' || /bloom/.test(st.summary)) {
+    throw new Error(`override not applied: ${JSON.stringify(st)}`);
+  }
+  const fits = await page.$eval('#screen-settings .panel', (el) => {
+    const r = el.getBoundingClientRect();
+    return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  });
+  if (!fits) throw new Error('settings panel does not fit the viewport');
+  await page.screenshot({ path: SHOT('graphics', vp) });
+  await closeSettings();
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await waitAppState(page, 'title');
+  await openSettings();
+  st = await gfxState();
+  if (st.preset !== 'high' || st.bloom !== 'off' || st.canvas !== 'high') throw new Error(`not persisted: ${JSON.stringify(st)}`);
+  // Choosing a preset clears overrides; leave the device on Auto.
+  await page.selectOption('#gfx-preset', 'auto');
+  st = await gfxState();
+  if (st.preset !== 'auto' || st.bloom !== 'preset' || st.canvas !== 'low') throw new Error(`auto/clear failed: ${JSON.stringify(st)}`);
+  await closeSettings();
+}
+
 /* ------------------------------- passes ------------------------------ */
 
 async function desktopPass(browser, base, errors) {
@@ -111,7 +163,7 @@ async function desktopPass(browser, base, errors) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`[desktop] pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`[desktop] console: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`[desktop] console ${m.type()}: ${m.text()}`);
   });
   let stage1End = null;
 
@@ -262,6 +314,16 @@ async function desktopPass(browser, base, errors) {
     await page.waitForSelector('#screen-title:not([hidden])');
   });
 
+  await step('graphics settings: presets, override, persistence', async () => {
+    await graphicsFlow(page, vp, async () => {
+      await page.click('#btn-settings');
+      await page.waitForSelector('#screen-settings:not([hidden])');
+    }, async () => {
+      await page.click('#btn-settings-back');
+      await page.waitForSelector('#screen-title:not([hidden])');
+    });
+  });
+
   await context.close();
 }
 
@@ -273,7 +335,7 @@ async function mobilePass(browser, base, errors) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`[mobile] pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`[mobile] console: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`[mobile] console ${m.type()}: ${m.text()}`);
   });
 
   const step = async (name, fn) => { await fn(); console.log(`ok - [mobile] ${name}`); };
@@ -323,6 +385,38 @@ async function mobilePass(browser, base, errors) {
     await page.screenshot({ path: SHOT('leave-results', vp) });
     await page.tap('#btn-results-menu');
     await page.waitForSelector('#screen-title:not([hidden])');
+  });
+
+  await step('graphics settings by touch: presets, override, persistence', async () => {
+    await graphicsFlow(page, vp, async () => {
+      await page.tap('#btn-settings');
+      await page.waitForSelector('#screen-settings:not([hidden])');
+    }, async () => {
+      await page.locator('#btn-settings-back').scrollIntoViewIfNeeded();
+      await page.tap('#btn-settings-back');
+      await page.waitForSelector('#screen-title:not([hidden])');
+    });
+  });
+
+  await step('graphics reachable from pause during play', async () => {
+    await page.tap('#btn-journey');
+    await page.locator('.jstage').first().click();
+    await page.tap('#btn-setup-start');
+    await waitAppState(page, 'active', 8000);
+    await page.tap('#btn-pause');
+    await page.waitForSelector('#screen-pause:not([hidden])');
+    await page.tap('#btn-pause-settings');
+    await page.waitForSelector('#screen-settings:not([hidden])');
+    await page.locator('#gfx-fps').scrollIntoViewIfNeeded();
+    await page.tap('#gfx-fps');
+    const shown = await page.evaluate(() => !document.getElementById('fps-meter')?.hidden);
+    if (!shown) throw new Error('frame-rate readout not shown');
+    await page.tap('#gfx-fps');
+    await page.locator('#btn-settings-back').scrollIntoViewIfNeeded();
+    await page.tap('#btn-settings-back');
+    await page.waitForSelector('#screen-pause:not([hidden])');
+    await page.tap('#btn-leave');
+    await page.waitForSelector('#screen-results:not([hidden])', { timeout: 8000 });
   });
 
   await context.close();

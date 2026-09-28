@@ -279,7 +279,6 @@ export class UI {
     $('vol-ambience').value = Math.round((s.volumes.ambience ?? 0.5) * 100);
     $('vol-voice').value = Math.round((s.volumes.voice ?? 0.7) * 100);
     $('set-muted').checked = !!s.muted;
-    $('set-tier').value = s.graphicsTier || 'medium';
     $('set-motion').checked = !!s.reducedMotion;
     $('set-contrast').checked = !!s.highContrast;
     $('set-palette').value = s.colorPalette || 'default';

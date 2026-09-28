@@ -173,14 +173,7 @@
           <label class="check"><input type="checkbox" id="set-muted"> Mute all</label>
         </fieldset>
         <fieldset>
-          <legend>Graphics</legend>
-          <label>Quality tier
-            <select id="set-tier">
-              <option value="low">Low — battery saver</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
+          <legend>Display</legend>
           <label class="check"><input type="checkbox" id="set-motion"> Reduced motion</label>
           <label class="check"><input type="checkbox" id="set-contrast"> High contrast</label>
           <label>Color palette
@@ -200,6 +193,8 @@
           <label class="check"><input type="checkbox" id="set-haptics"> Haptics on supported devices</label>
           <button id="btn-replay-tutorial" class="btn">Replay tutorial</button>
         </fieldset>
+        <!-- Built and localized by js/gfx-ui.js -->
+        <fieldset id="gfx-fieldset" class="gfx-fieldset"><legend>Graphics</legend></fieldset>
       </div>
       <div class="row"><button id="btn-settings-back" class="btn btn-ghost">Back</button></div>
     </div>
@@ -265,6 +260,9 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 </main>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
+</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
