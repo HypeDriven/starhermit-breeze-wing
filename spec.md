@@ -551,3 +551,7 @@ board; `node --check` passes on every JS/MJS file.
 3. A seed field on the Score Chase setup so shared seeds can actually be entered.
 4. Enforce `goalExtra.centeredPasses` for Perfect Line in the rules (terminal `cleared` only when
    both conditions hold).
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
