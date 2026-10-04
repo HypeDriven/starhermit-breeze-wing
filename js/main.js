@@ -16,7 +16,15 @@ import {
 } from './content.js';
 import { GameSession } from './session.js';
 import { Renderer } from './render.js';
-import { GraphicsPanel, initialGraphics } from './gfx-ui.js';
+import { GraphicsPanel, initialGraphics, accountStrings } from './gfx-ui.js';
+
+// Keyboard actions by KeyboardEvent.code (control.* in starhermit.txt);
+// a signed-in player's StarHermit overrides replace these at boot.
+const KEY_DEFAULTS = {
+  flap: ['Space', 'ArrowUp', 'KeyW'], pause: ['Escape', 'KeyP'], undo: ['KeyU'], restart: ['KeyR'], help: ['KeyH'],
+};
+const KEY_NAMES = { Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Escape: 'Esc' };
+const ACCOUNT = accountStrings(typeof navigator !== 'undefined' ? navigator.language : 'en-US');
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { Platform } from './platform.js';
@@ -54,7 +62,10 @@ class App {
   get settings() { return this.save.settings; }
   get progress() { return this.save.progress; }
 
-  persist() { writeSave(localStorage, this.save); }
+  persist() {
+    writeSave(localStorage, this.save);
+    this.platform.mirrorSettings(this.settings); // StarHermit settings KV (changed keys only)
+  }
 
   /* ============================ boot ================================ */
 
@@ -78,6 +89,7 @@ class App {
       this.ui.setProfileChip(this.platform.profile, this.platform.hosted, this.platform.sync);
     });
     if (boot.mode === 'degraded') this.ui.toast('Playing offline — progress stays on this device.');
+    this._initAccount();
 
     // Renderer.
     // Graphics settings are per device (they depend on this GPU), so they live
@@ -123,8 +135,71 @@ class App {
   }
 
   async _syncCloud() {
-    const remote = await this.platform.loadProgress();
+    const [remote, ps] = await Promise.all([this.platform.loadProgress(), this.platform.loadSettings()]);
     this._resolveCloudConflict(remote);
+    // Platform settings win over the save document's preferences.
+    let changed = false;
+    for (const k of Object.keys(this.settings)) {
+      if (k in ps) { this.settings[k] = k === 'volumes' ? { ...this.settings.volumes, ...ps[k] } : ps[k]; changed = true; }
+    }
+    if (changed) this._applySettings();
+    this.persist(); // local cache + seeds KV keys the platform lacks
+  }
+
+  /* ===================== StarHermit account ====================== */
+
+  _initAccount() {
+    const P = this.platform;
+    this.keyBindings = JSON.parse(JSON.stringify(KEY_DEFAULTS));
+    this._renderKeys();
+    $('btn-sign-in').addEventListener('click', () => P.signIn());
+    $('btn-invite').addEventListener('click', () => this._copyInvite());
+    P.avatarUrl().then((url) => this.ui.setProfileAvatar(url));
+    P.loadBindings(KEY_DEFAULTS).then((b) => { this.keyBindings = b; this._renderKeys(); });
+    P.onAuth((a) => {
+      if (!a.signedIn) {
+        this.ui.setProfileAvatar(null);
+        this.ui.setProfileChip(P.profile, P.hosted, P.sync);
+        this.ui.toast(ACCOUNT.signedOut);
+      }
+      this._refreshAccountButtons();
+    });
+    this._refreshAccountButtons();
+  }
+
+  _refreshAccountButtons() {
+    const si = $('btn-sign-in'), inv = $('btn-invite');
+    si.textContent = ACCOUNT.signIn;
+    si.hidden = !this.platform.canSignIn();
+    inv.textContent = ACCOUNT.invite;
+    inv.hidden = !this.platform.hosted;
+  }
+
+  async _copyInvite() {
+    const link = this.platform.inviteLink();
+    if (!link) return;
+    try { await navigator.clipboard.writeText(link); this.ui.toast(ACCOUNT.inviteCopied); }
+    catch { this.ui.toast(`${ACCOUNT.inviteFailed} ${link}`, 6000); }
+  }
+
+  _actionFor(code) {
+    for (const [a, codes] of Object.entries(this.keyBindings || KEY_DEFAULTS)) if (codes.includes(code)) return a;
+    return null;
+  }
+
+  /** Help cards show the effective bindings. */
+  _renderKeys() {
+    for (const action of Object.keys(KEY_DEFAULTS)) {
+      const host = $(`keys-${action}`);
+      if (!host) continue;
+      host.replaceChildren();
+      (this.keyBindings[action] || []).forEach((c, i) => {
+        if (i) host.append(action === 'flap' ? ' / ' : '/');
+        const k = document.createElement('kbd');
+        k.textContent = KEY_NAMES[c] || c.replace(/^Key/, '').replace(/^Digit/, '');
+        host.appendChild(k);
+      });
+    }
   }
 
   /**
@@ -560,11 +635,11 @@ class App {
       if (e.repeat) return;
       const tag = (e.target && e.target.tagName) || '';
       const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
-      switch (e.code) {
-        case 'Space': case 'ArrowUp': case 'KeyW':
+      switch (this._actionFor(e.code)) {
+        case 'flap':
           if (!typing) { e.preventDefault(); this._flap(); }
           break;
-        case 'Escape': case 'KeyP':
+        case 'pause':
           if (this.appState === 'active' || this.appState === 'countdown') this._pause('key');
           else if (this.appState === 'paused' && (!this.ui._current || this.ui._current === 'pause')) this._resume();
           else if (this.appState === 'paused') {
@@ -577,13 +652,13 @@ class App {
             this._backFromScreen();
           }
           break;
-        case 'KeyU':
+        case 'undo':
           if (this.session && this.session.canUndo) this.session.undo();
           break;
-        case 'KeyR':
+        case 'restart':
           if (this.appState === 'results' && this.session) this._retry();
           break;
-        case 'KeyH':
+        case 'help':
           if (this.appState === 'title') this._openHelp();
           break;
         default: break;

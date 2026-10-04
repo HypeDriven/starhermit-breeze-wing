@@ -33,7 +33,8 @@ points, but the middle of the gate is where streaks and scores are made.
 | `vendor/addons/` | three.js r160 (0.160.1) post-processing passes and shaders: EffectComposer, RenderPass, ShaderPass, OutputPass, UnrealBloomPass, SMAAPass, FXAAShader and their imports; resolved through the `index.html` import map |
 | `js/audio.js` | WebAudio engine: four buses, authored Opus one-shots + loops with procedural fallbacks, captions, adaptive music |
 | `js/ui.js` | Screen switching, focus restore, live regions, HUD, setup/results/journey/achievements/board fills |
-| `js/platform.js` | StarHermit adapter: fragment launch token + Bearer + 45-min refresh, profile nickname, cloud-save slot (zip+base64, debounced, sync status), read-only platform leaderboard |
+| `starhermit-sdk.js` | Canonical StarHermit client (verbatim copy, `window.StarHermit`) |
+| `js/platform.js` | StarHermit adapter over the SDK: identity (nickname + avatar), cloud-save slot (debounced, sync status), settings KV, control bindings, sign-in, invite link, read-only platform leaderboard |
 | `js/store.js` | Versioned, checksummed local save document; migration; conflict helpers |
 | `js/main.js` | `App`: state machine, fixed-step loop, input, lifecycle, progression, achievements, UI wiring |
 | `server.js` | StarHermit game script (`server=server.js`): static serving + authoritative replay-validated scores, saves, time |
@@ -213,7 +214,7 @@ idempotent, evaluated after every round): `first_clear`, `mechanic_mastery` (all
 
 | Input | Desktop | Mobile / touch | Gamepad | Effect |
 |---|---|---|---|---|
-| Flap | `Space`, `↑`, `W`, left click on canvas | Tap anywhere on the canvas or the "Tap anywhere to flap" pill | Button 0 (A/Cross) | `FLAP` command; whoosh, wing kick, 8 ms haptic, 5-particle puff |
+| Flap | `Space`, `↑`, `W` (StarHermit control overrides apply when signed in), left click on canvas | Tap anywhere on the canvas or the "Tap anywhere to flap" pill | Button 0 (A/Cross) | `FLAP` command; whoosh, wing kick, 8 ms haptic, 5-particle puff |
 | Pause / resume | `Esc`, `P`, HUD ❚❚ Pause | HUD button | Start (9) pauses, Start/B (1) resumes | Countdown timers are cancelled; sim freezes |
 | Undo (Practice) | `U`, HUD Undo | HUD Undo | — | Restores pre-flap state; rewind cue |
 | Retry | `R` on results, Retry button | button | A on focused button | Same raw config, new session id |
@@ -376,23 +377,32 @@ truncation.
 ## 12. StarHermit integration
 
 Manifest `starhermit.txt`: `name=Breeze Wing`, `launch=index.html`, `owner=…`, `server=server.js`,
-`version=1.0.0`, `cover=coverart.png`. The client is hosted when a launch token was read — it
-arrives in the URL fragment `#game_token=<jwt>` (optional `&session_id=`), is stripped after the
-read, and is sent as `Authorization: Bearer` on every hosted call, never persisted. It is re-minted
-every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry); the slug comes from the
-JWT's `game_scope` and is never hard-coded. Without a token the game makes zero `/api` calls and
-runs as an offline guest with local saves.
+`version=1.0.0`, `cover=coverart.png`, plus five `control.*` lines (below). `starhermit-sdk.js`
+(verbatim copy of the canonical client) loads as a classic script before `js/main.js`;
+`js/platform.js` calls `StarHermit.init()` during module evaluation and wraps the SDK in the
+`Platform` class. The client is hosted when a launch token was read — the SDK takes it from
+`#game_token=<jwt>[&session_id=]` or a sign-in return `#access_token=…`, strips it from the URL,
+takes the slug from `game_scope` (never hard-coded), sends it as `Authorization: Bearer` and
+renews it via `POST /api/v1/games/{slug}/launch-token`; nothing is persisted. If renewal is
+refused the chip returns to the guest label, a toast says "Signed out of StarHermit — progress
+stays on this device." and play continues locally. Without a token the game makes zero `/api`
+calls and runs as an offline guest with local saves.
 
 | Feature | Used | How |
 |---|---|---|
-| Identity / profile | Yes | `GET /api/v1/users/{sub}/profile` → nickname (never `/api/v1/me`, never usernames; `Player <id8>` fallback); shown in the profile chip with cloud-sync status (offline/saving/synced) |
+| Sign-in | Yes | On `*.starhermit.com` without a token the title shows **Sign in with StarHermit** (`StarHermit.signIn()`); hidden when signed in and locally |
+| Invite | Yes | When signed in the title shows **Invite a friend**, copying `StarHermit.inviteLink()` with a confirmation toast (the link is shown if the clipboard is blocked) |
+| Settings KV | Yes | Every `persist()` sends the changed keys of the save document's `settings` (volumes, mute, reduced motion, contrast, palette, text size, handedness, assist arc, haptics, telemetry consent) with `PATCH /api/v1/games/{slug}/settings`; on boot the platform's values override the document's. Graphics stay per device (localStorage) |
+| Controls | Yes | `control.flap`, `pause`, `undo`, `restart`, `help`; keydown routes by `event.code` through `StarHermit.loadBindings` (defaults standalone) and the Help cards show the effective keys |
+| Account strings | Yes | Sign-in, invite, toast and sign-out texts in all nine locales (`ACCOUNT_STRINGS` in `js/gfx-ui.js`) |
+| Identity / profile | Yes | `GET /api/v1/users/{sub}/profile` → nickname (never `/api/v1/me`, never usernames; `Player <id8>` fallback) and `/avatar`; shown in the profile chip (avatar + name) with cloud-sync status (offline/saving/synced) |
 | Server time | Yes | `GET /api/v1/time`, round-trip-adjusted offset; drives the daily key and "done today" |
 | Presence / activity / telemetry | No | No per-game endpoints exist for launch tokens (wiki); the client deliberately never calls them |
-| Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/{slug}`; remote wins on boot (strict-descendant auto-resolve or Conflict screen), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache |
-| Leaderboards | Read-only | Clients never submit (wiki). Read via `GET /api/v1/games/{slug}` → `leaderboardId` → `GET /api/v1/leaderboards/{id}/entries[?friendsOnly=]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
+| Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/game:{slug}` (via the SDK); remote wins on boot (strict-descendant auto-resolve or Conflict screen), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache |
+| Leaderboards | Read-only | Clients never submit (wiki). Read via the SDK: first board of `GET /api/v1/games/{slug}/leaderboards` → `GET /api/v1/leaderboards/{id}/entries[?scope=friends]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
 | Achievements | Local | Unlocked and stored in the save document (part of the cloud-saved doc); no platform unlock endpoint is called |
 | Game script | Yes | `server.js` rebuilds the immutable content for `daily-*` / `chase-*`, rejects stale `contentVersion`, seed or board mismatches, replays the envelope through `js/rules.js`, labels entries `validated` or casual (plausibility-checked), keeps 200 per board, rate-limits 120 req/min per identity, 256 KB bodies, atomic table writes |
-| Realtime rooms, matchmaking, chat, voice, invitations | No | Solo game |
+| Realtime rooms, matchmaking, session invites, chat, voice, replays | No | Solo game; `server.js` is an HTTP host, not a platform script, so no platform achievements or session features exist |
 
 Conventions follow https://wiki.starhermit.com/ (same-origin `/api/v1`, `Authorization: Bearer`
 with the launch token, structured `{"error": …}` responses, `Retry-After` on 429).
@@ -487,7 +497,7 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (62 tests, `node --test tests/*.test.mjs`): graphics model (`detectPreset` on sample
+`npm test` (66 tests, `node --test tests/*.test.mjs`): StarHermit adapter (`tests/platform.test.mjs`: SDK in a sandbox with a stubbed `fetch` — no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; control overrides; leaderboard read; sign-out on refused renewal; account strings in all nine locales); graphics model (`detectPreset` on sample
 GPU strings incl. the touch cap, `resolve` with auto/preset/override/invalid tier, render-scale
 clamp, `choosePreset` clearing overrides, every preset row valid, `describe` incl. a localized
 summary, per-device storage and legacy seeding, every locale has every panel string); RNG determinism and `hashString`; legal

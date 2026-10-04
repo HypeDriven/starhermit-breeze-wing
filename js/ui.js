@@ -288,6 +288,13 @@ export class UI {
     $('set-haptics').checked = s.haptics !== false;
   }
 
+  /** Avatar next to the profile chip (object URL) — hidden when null. */
+  setProfileAvatar(url) {
+    const img = $('profile-avatar');
+    if (!img) return;
+    if (url) { img.src = url; img.hidden = false; } else { img.removeAttribute('src'); img.hidden = true; }
+  }
+
   setProfileChip(profile, hosted, sync) {
     if (profile.guest) {
       this.el.profileChip.textContent = 'Guest — progress saves locally';

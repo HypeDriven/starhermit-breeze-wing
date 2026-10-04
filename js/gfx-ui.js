@@ -107,6 +107,120 @@ export function pickLocale(tag) {
   return 'en-US';
 }
 
+/** StarHermit account strings (title sign-in / invite, toasts). `{name}` = display name. */
+export const ACCOUNT_STRINGS = {
+  "en-US": {
+    "signIn": "Sign in with StarHermit",
+    "invite": "Invite a friend",
+    "inviteCopied": "Invite link copied to the clipboard.",
+    "inviteFailed": "Could not copy the invite link.",
+    "offline": "Offline — progress is stored on this device.",
+    "playingAs": "Playing as {name}",
+    "synced": "progress synced",
+    "saving": "saving…",
+    "syncOff": "cloud sync unavailable",
+    "signedOut": "Signed out of StarHermit — progress stays on this device."
+  },
+  "en-GB": {
+    "signIn": "Sign in with StarHermit",
+    "invite": "Invite a friend",
+    "inviteCopied": "Invite link copied to the clipboard.",
+    "inviteFailed": "Could not copy the invite link.",
+    "offline": "Offline — progress is stored on this device.",
+    "playingAs": "Playing as {name}",
+    "synced": "progress synced",
+    "saving": "saving…",
+    "syncOff": "cloud sync unavailable",
+    "signedOut": "Signed out of StarHermit — progress stays on this device."
+  },
+  "es-419": {
+    "signIn": "Iniciar sesión con StarHermit",
+    "invite": "Invitar a un amigo",
+    "inviteCopied": "Enlace de invitación copiado al portapapeles.",
+    "inviteFailed": "No se pudo copiar el enlace de invitación.",
+    "offline": "Sin conexión: el progreso se guarda en este dispositivo.",
+    "playingAs": "Jugando como {name}",
+    "synced": "progreso sincronizado",
+    "saving": "guardando…",
+    "syncOff": "sincronización en la nube no disponible",
+    "signedOut": "Sesión de StarHermit cerrada: el progreso se queda en este dispositivo."
+  },
+  "es-ES": {
+    "signIn": "Iniciar sesión con StarHermit",
+    "invite": "Invitar a un amigo",
+    "inviteCopied": "Enlace de invitación copiado en el portapapeles.",
+    "inviteFailed": "No se pudo copiar el enlace de invitación.",
+    "offline": "Sin conexión: el progreso se guarda en este dispositivo.",
+    "playingAs": "Jugando como {name}",
+    "synced": "progreso sincronizado",
+    "saving": "guardando…",
+    "syncOff": "sincronización en la nube no disponible",
+    "signedOut": "Sesión de StarHermit cerrada: el progreso se queda en este dispositivo."
+  },
+  "de-DE": {
+    "signIn": "Mit StarHermit anmelden",
+    "invite": "Freund einladen",
+    "inviteCopied": "Einladungslink in die Zwischenablage kopiert.",
+    "inviteFailed": "Einladungslink konnte nicht kopiert werden.",
+    "offline": "Offline – der Fortschritt wird auf diesem Gerät gespeichert.",
+    "playingAs": "Du spielst als {name}",
+    "synced": "Fortschritt synchronisiert",
+    "saving": "wird gespeichert …",
+    "syncOff": "Cloud-Synchronisierung nicht verfügbar",
+    "signedOut": "Von StarHermit abgemeldet – der Fortschritt bleibt auf diesem Gerät."
+  },
+  "fr-FR": {
+    "signIn": "Se connecter avec StarHermit",
+    "invite": "Inviter un ami",
+    "inviteCopied": "Lien d’invitation copié dans le presse-papiers.",
+    "inviteFailed": "Impossible de copier le lien d’invitation.",
+    "offline": "Hors ligne : la progression est enregistrée sur cet appareil.",
+    "playingAs": "Vous jouez en tant que {name}",
+    "synced": "progression synchronisée",
+    "saving": "enregistrement…",
+    "syncOff": "synchronisation cloud indisponible",
+    "signedOut": "Déconnecté de StarHermit : la progression reste sur cet appareil."
+  },
+  "fr-CA": {
+    "signIn": "Se connecter avec StarHermit",
+    "invite": "Inviter un ami",
+    "inviteCopied": "Lien d’invitation copié dans le presse-papiers.",
+    "inviteFailed": "Impossible de copier le lien d’invitation.",
+    "offline": "Hors ligne : la progression est enregistrée sur cet appareil.",
+    "playingAs": "Vous jouez en tant que {name}",
+    "synced": "progression synchronisée",
+    "saving": "enregistrement…",
+    "syncOff": "synchronisation infonuagique indisponible",
+    "signedOut": "Déconnecté de StarHermit : la progression reste sur cet appareil."
+  },
+  "pt-BR": {
+    "signIn": "Entrar com a StarHermit",
+    "invite": "Convidar um amigo",
+    "inviteCopied": "Link de convite copiado para a área de transferência.",
+    "inviteFailed": "Não foi possível copiar o link de convite.",
+    "offline": "Offline — o progresso fica salvo neste dispositivo.",
+    "playingAs": "Jogando como {name}",
+    "synced": "progresso sincronizado",
+    "saving": "salvando…",
+    "syncOff": "sincronização na nuvem indisponível",
+    "signedOut": "Você saiu da StarHermit — o progresso continua neste dispositivo."
+  },
+  "it-IT": {
+    "signIn": "Accedi con StarHermit",
+    "invite": "Invita un amico",
+    "inviteCopied": "Link di invito copiato negli appunti.",
+    "inviteFailed": "Impossibile copiare il link di invito.",
+    "offline": "Offline: i progressi sono salvati su questo dispositivo.",
+    "playingAs": "Stai giocando come {name}",
+    "synced": "progressi sincronizzati",
+    "saving": "salvataggio…",
+    "syncOff": "sincronizzazione cloud non disponibile",
+    "signedOut": "Disconnesso da StarHermit: i progressi restano su questo dispositivo."
+  }
+};
+
+export function accountStrings(tag) { return ACCOUNT_STRINGS[pickLocale(tag)]; }
+
 /* ------------------------------ panel ------------------------------- */
 
 export class GraphicsPanel {

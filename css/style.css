@@ -301,3 +301,11 @@ body.left-handed .hud-right { align-items: flex-start; }
 
 /* Reduced motion: no transitions/animations. */
 body.reduced-motion * { animation: none !important; transition: none !important; }
+
+/* StarHermit account row + avatar */
+.title-account { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
+.title-account:not(:has(.btn:not([hidden]))) { display: none; }
+.title-account .btn[hidden] { display: none; }
+.profile-chip { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.profile-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+.profile-avatar[hidden] { display: none; }
