@@ -258,6 +258,10 @@ landscape ≤500 px tall the HUD shrinks, the logo drops to 1.8 rem, the emblem 
 results illustration is hidden. Safe areas are applied via `env(safe-area-inset-*)` to the HUD,
 panel padding, captions and the tap pill. Must never be cut off: the score, Pause, the countdown
 prompt, the results total row and the Retry/Menu row.
+Above a 1600×1000 viewport, `ui-scale.js` sets `--ui-scale` (min(w/1600, h/1000), max 2.5)
+and every DOM layer over the canvas — screens and panels, HUD, countdown, captions, tap pill,
+toast, frame-rate meter — zooms by it (viewport-unit lengths inside are divided by it); the
+full-viewport 3D canvas is not zoomed. At 1600×1000 and below the scale is exactly 1.
 
 ## 8. Art direction
 
