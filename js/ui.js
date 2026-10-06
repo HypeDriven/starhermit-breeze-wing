@@ -53,7 +53,9 @@ export class UI {
       const panel = $(`screen-${name}`);
       const focusable = panel && panel.querySelector('button, input, select, [tabindex]');
       this._lastFocus = document.activeElement;
-      if (focusable) setTimeout(() => focusable.focus(), 30);
+      if (focusable) setTimeout(() => focusable.focus({ preventScroll: true }), 30);
+      // Open at the top (heading visible), whatever the focus target's position.
+      if (panel) for (const el of [panel, ...panel.querySelectorAll('*')]) if (el.scrollTop) el.scrollTop = 0;
     }
   }
 
