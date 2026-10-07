@@ -285,9 +285,10 @@ async function desktopPass(browser, base, errors) {
     await page.evaluate(() => {
       window.__capturedBoards = [];
       window.__runsBefore = window.__bw.progress.totalRuns;
-      window.__bw.platform.submitScore = (p) => {
-        window.__capturedBoards.push(p.board);
-        return Promise.resolve({ ok: false, reason: 'spy' });
+      const post = window.__bw._postToLeaderboard.bind(window.__bw);
+      window.__bw._postToLeaderboard = (round) => {
+        if (round) window.__capturedBoards.push(round.board);
+        return post(round);
       };
     });
     await page.click('#btn-daily');
@@ -305,7 +306,9 @@ async function desktopPass(browser, base, errors) {
       boards: window.__capturedBoards,
       runsDelta: window.__bw.progress.totalRuns - window.__runsBefore,
       dayKey: new Date().toISOString().slice(0, 10),
+      lbHidden: document.getElementById('results-lb').hidden,
     }));
+    if (!check.lbHidden) throw new Error('standalone results show a leaderboard line');
     if (check.boards.length !== 1 || check.boards[0] !== `daily-${check.dayKey}`) {
       throw new Error(`ranked daily submission wrong: ${JSON.stringify(check.boards)} (expected exactly one entry for daily-${check.dayKey})`);
     }

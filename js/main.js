@@ -439,19 +439,11 @@ class App {
       });
     }
 
-    // Ranked submission: full provenance + replay envelope.
-    if (cfg.ranked && s.terminal) {
-      const assists = { arc: !!this.settings.assistArc, reducedMotion: !!this.settings.reducedMotion };
-      this.platform.submitScore({
-        board: cfg.mode === 'daily' ? `daily-${cfg.dateKey}` : 'chase',
-        score: s.score.total, config: cfg, assists,
-        durationTicks: s.tick, envelope: this.session.envelope,
-      }).then((r) => {
-        if (r.ok) this.ui.toast(r.validated ? `Score verified — rank #${r.rank ?? '?'}` : 'Score submitted (casual board).');
-        else if (r.reason === 'leaderboard-readonly') this.ui.toast('Score kept as a personal best — platform boards are read-only.');
-        else this.ui.toast('Score kept locally — will submit when online.');
-      });
-    }
+    // Ranked rounds (Daily Breeze, Score Chase) post their total to the
+    // platform `high-score` board when signed in; the results screen shows the rank.
+    this._lbRound = (cfg.ranked && s.terminal) ? {
+      board: cfg.mode === 'daily' ? `daily-${cfg.dateKey}` : 'chase', score: s.score.total,
+    } : null;
     return extras;
   }
 
@@ -491,6 +483,22 @@ class App {
       nextLabel,
     });
     this.ui.fillEarned(this._lastEarned || []);
+    this._postToLeaderboard(this._lbRound);
+  }
+
+  /** Hosted only: post the round and show the leaderboard line on the results screen. */
+  _postToLeaderboard(round) {
+    const line = $('results-lb');
+    if (!line) return;
+    if (!round || !this.platform.hosted) { line.hidden = true; line.textContent = ''; return; }
+    line.hidden = false;
+    line.textContent = ACCOUNT.lbPosting;
+    const session = this.session;
+    this.platform.submitScore(round).then((r) => {
+      if (this.session !== session) return;
+      line.textContent = !r.posted ? ACCOUNT.lbNotPosted
+        : r.rank ? ACCOUNT.lbRank.replace('{rank}', r.rank) : ACCOUNT.lbPosted;
+    });
   }
 
   /* ========================= session events ========================= */
@@ -902,13 +910,12 @@ class App {
       this.ui.buildBoard(this.progress.localBoard, 'Scores from this device. Casual — verified boards require sign-in.');
       return;
     }
-    const dayKey = dailyContent(this.platform.now()).dateKey;
-    const entries = await this.platform.leaderboard(`daily-${dayKey}`, { friendsOnly: which === 'friends' });
+    const entries = await this.platform.leaderboard('high-score', { friendsOnly: which === 'friends' });
     if (entries === null) {
       this.ui.buildBoard(this.progress.localBoard,
         this.platform.hosted ? 'Board unavailable right now — showing local scores.' : 'Offline — showing this device\'s scores. Sign in for global boards.');
     } else {
-      this.ui.buildBoard(entries, which === 'friends' ? 'Friends only.' : `Daily board for ${dayKey}.`);
+      this.ui.buildBoard(entries, which === 'friends' ? 'Friends only — high scores from Daily Breeze and Score Chase.' : 'High scores from Daily Breeze and Score Chase.');
     }
   }
 

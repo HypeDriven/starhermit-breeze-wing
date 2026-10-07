@@ -8,7 +8,7 @@
  * nickname + avatar, never /api/v1/me), server time, the ONE cloud-save slot
  * (/api/v1/me/cloud-saves/game:{slug}, remote wins on boot, debounced saves
  * flushed on pagehide/hidden), per-player settings KV, control bindings,
- * sign-in, invite link and the read-only platform leaderboard. Presence,
+ * sign-in, invite link and the `high-score` leaderboard (post + read). Presence,
  * activity and telemetry endpoints do not exist for launch tokens and are
  * deliberately not called. No token → localStorage only, zero /api calls.
  */
@@ -188,18 +188,26 @@ export class Platform {
   }
 
   /* -------------------------- leaderboards -------------------------- */
-  // READ-ONLY on the platform (wiki: clients can never submit to a game
-  // leaderboard); user ids become profile nicknames.
+  // Scores reach the boards only through the game's score-script.js
+  // (StarHermit.submitScores opens a practice session that posts them).
 
-  async submitScore() {
-    return { ok: false, reason: this.hosted ? 'leaderboard-readonly' : 'offline', local: true };
+  /** Post a finished ranked round to the `high-score` board → { posted, rank }. */
+  async submitScore({ score } = {}) {
+    if (!this.hosted || !this.sh.submitScores) return { posted: false, rank: null, reason: 'offline' };
+    const keys = await this.sh.submitScores({ 'high-score': score });
+    if (!keys || keys.indexOf('high-score') < 0) return { posted: false, rank: null };
+    try {
+      const r = await this.sh.leaderboard('high-score', { pageSize: 100 });
+      const me = (r.items || []).find((i) => i.userId === this.userId);
+      return { posted: true, rank: me ? me.rank : null };
+    } catch { return { posted: true, rank: null }; }
   }
 
   /** Read the game's first platform leaderboard. Entries ([] when none) or null on failure. */
   async leaderboard(board, { friendsOnly = false } = {}) {
     if (!this.hosted) return null;
     try {
-      const r = await this.sh.leaderboard(null, { page: 1, pageSize: 50, scope: friendsOnly ? 'friends' : undefined });
+      const r = await this.sh.leaderboard('high-score', { page: 1, pageSize: 50, scope: friendsOnly ? 'friends' : undefined });
       if (!r.board) return null;
       const raw = r.items || r.entries || [];
       return Promise.all(raw.map(async (e) => {

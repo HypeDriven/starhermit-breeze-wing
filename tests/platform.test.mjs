@@ -41,7 +41,7 @@ function boot({ hash = '' } = {}) {
       return Response.json({ settings: kv });
     }
     if (u.endsWith(`/games/${SLUG}/controls`)) return Response.json({ actions: [{ action: 'hint', codes: ['KeyJ'] }] });
-    if (u.endsWith(`/games/${SLUG}/leaderboards`)) return Response.json([{ id: 'lb1', key: 'daily' }]);
+    if (u.endsWith(`/games/${SLUG}/leaderboards`)) return Response.json([{ id: 'lb1', key: 'high-score' }]);
     if (u.includes('/leaderboards/lb1/entries')) return Response.json({ items: [{ rank: 1, score: 900, userId: USER }], total: 1 });
     return new Response('', { status: 404 });
   };

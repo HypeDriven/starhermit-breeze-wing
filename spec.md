@@ -34,10 +34,11 @@ points, but the middle of the gate is where streaks and scores are made.
 | `js/audio.js` | WebAudio engine: four buses, authored Opus one-shots + loops with procedural fallbacks, captions, adaptive music |
 | `js/ui.js` | Screen switching, focus restore, live regions, HUD, setup/results/journey/achievements/board fills |
 | `starhermit-sdk.js` | Canonical StarHermit client (verbatim copy, `window.StarHermit`) |
-| `js/platform.js` | StarHermit adapter over the SDK: identity (nickname + avatar), cloud-save slot (debounced, sync status), settings KV, control bindings, sign-in, invite link, read-only platform leaderboard |
+| `js/platform.js` | StarHermit adapter over the SDK: identity (nickname + avatar), cloud-save slot (debounced, sync status), settings KV, control bindings, sign-in, invite link, `high-score` leaderboard post (via `score-script.js`) and read |
 | `js/store.js` | Versioned, checksummed local save document; migration; conflict helpers |
 | `js/main.js` | `App`: state machine, fixed-step loop, input, lifecycle, progression, achievements, UI wiring |
-| `server.js` | StarHermit game script (`server=server.js`): static serving + authoritative replay-validated scores, saves, time |
+| `score-script.js` | StarHermit platform script (`server=score-script.js`): range-checks a finished ranked round's total and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`) |
+| `server.js` | Local dev server: static serving + replay-validated scores, saves, time (not deployed as the platform script) |
 | `sfx/*.opus`, `sfx/manifest.txt` | 17 authored clips; canonical `file \| event \| description \| usage` manifest (`manifest.json` feeds the generator and the runtime map) |
 | `assets/title-emblem.webp`, `assets/results-horizon.webp` | Storybook illustrations used by the title and results panels |
 | `coverart.png`, `icon.png`, `favicon.svg` | Platform cover (16:9) and icons |
@@ -198,10 +199,10 @@ tier ≥ 0.35.
 |---|---|---|---|---|
 | Learn | 5 lessons: First Lift (3 flaps, no gates, no scroll), Hold the Line (survive 6 s), Thread the Gate (3 gates), True Center (4 gates), Restless Gates (4 moving gates) | `flaps` / `survive` / `gates` | No | Prompt shown in countdown + toast; clearing all five sets `tutorialDone` |
 | Journey | 40 stages, tier = index/39; gate count 10→19, mastery stages 10/20/30/40 have 22 gates at tier+0.08; themes by block of 8: Ember Dawn, High Noon, Violet Dusk, Starlit Drift, Aurora Vale; moving gates from stage 15 | `gates`, par = 1.05 × expected travel time | No | No locks; grid marks cleared (best score) and the current stage; results offer **Next** |
-| Daily Breeze | `daily-YYYY-MM-DD` from platform time (server-synced when hosted): tier 0.35–0.75 fixed per day, theme = day-number mod 5, endless gates, 90 s | `survive` 5400 ticks (time-up = cleared) | Yes → board `daily-<date>` | Title card shows "done today ✓" once a best exists; one shared seed for everyone |
+| Daily Breeze | `daily-YYYY-MM-DD` from platform time (server-synced when hosted): tier 0.35–0.75 fixed per day, theme = day-number mod 5, endless gates, 90 s | `survive` 5400 ticks (time-up = cleared) | Yes → `high-score` | Title card shows "done today ✓" once a best exists; one shared seed for everyone |
 | Practice | Calm Skies (tier 0.1), Breezy (0.5), Tempest (0.9); endless | Until crash / leave | No | Undo allowed (HUD button, `U`); never affects boards |
 | Challenges | Frugal Wings (8 gates, 18 flaps), Tailwind Sprint (12 gates, speed 7.2, par 747 ticks), Needle Threader (10 tight moving gates), Sky Marathon (survive 60 s of restless gates), Perfect Line (8 gates) | per row | No | Personal bests stored per id |
-| Score Chase | `chase-<hex seed>` from `sky-YYYY-MM-DD`, tier 0.55, endless | Until crash | Yes → board `chase` | Setup blurb names the seed to share |
+| Score Chase | `chase-<hex seed>` from `sky-YYYY-MM-DD`, tier 0.55, endless | Until crash | Yes → `high-score` | Setup blurb names the seed to share |
 
 Progression is a local save (`store.js`): `lessons`, `journey[stageId] {cleared, bestScore,
 bestTicks}`, `best[contentId]`, `achievements[key] = ISO time`, `daysPlayed[]`, `localBoard[]`
@@ -380,7 +381,7 @@ truncation.
 
 ## 12. StarHermit integration
 
-Manifest `starhermit.txt`: `name=Breeze Wing`, `launch=index.html`, `owner=…`, `server=server.js`,
+Manifest `starhermit.txt`: `name=Breeze Wing`, `launch=index.html`, `owner=…`, `server=score-script.js`,
 `version=1.0.0`, `cover=coverart.png`, plus five `control.*` lines (below). `starhermit-sdk.js`
 (verbatim copy of the canonical client) loads as a classic script before `js/main.js`;
 `js/platform.js` calls `StarHermit.init()` during module evaluation and wraps the SDK in the
@@ -403,10 +404,10 @@ calls and runs as an offline guest with local saves.
 | Server time | Yes | `GET /api/v1/time`, round-trip-adjusted offset; drives the daily key and "done today" |
 | Presence / activity / telemetry | No | No per-game endpoints exist for launch tokens (wiki); the client deliberately never calls them |
 | Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/game:{slug}` (via the SDK); remote wins on boot (strict-descendant auto-resolve or Conflict screen, which stays up and holds cloud pushes until the player chooses), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache |
-| Leaderboards | Read-only | Clients never submit (wiki). Read via the SDK: first board of `GET /api/v1/games/{slug}/leaderboards` → `GET /api/v1/leaderboards/{id}/entries[?scope=friends]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
+| Leaderboards | Yes | One board, `high-score` (integer, higher is better, 0–1,000,000). When signed in, every finished Daily Breeze or Score Chase round posts its total through `StarHermit.submitScores` (a practice session whose `score-script.js` posts it), and the results screen shows "Leaderboard rank: #N" (or posted / not posted; localized in the nine locales via `ACCOUNT_STRINGS`). Standalone play posts nothing and shows no line. The Leaderboards screen reads `high-score` via `GET /api/v1/games/{slug}/leaderboards` → `GET /api/v1/leaderboards/{id}/entries[?scope=friends]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
 | Achievements | Local | Unlocked and stored in the save document (part of the cloud-saved doc); no platform unlock endpoint is called |
-| Game script | Yes | `server.js` rebuilds the immutable content for `daily-*` / `chase-*`, rejects stale `contentVersion`, seed or board mismatches, replays the envelope through `js/rules.js`, labels entries `validated` or casual (plausibility-checked), keeps 200 per board, rate-limits 120 req/min per identity, 256 KB bodies, atomic table writes |
-| Realtime rooms, matchmaking, session invites, chat, voice, replays | No | Solo game; `server.js` is an HTTP host, not a platform script, so no platform achievements or session features exist |
+| Game script | Yes | `score-script.js` is the platform script (range-checks and posts scores). The local dev `server.js` rebuilds the immutable content for `daily-*` / `chase-*`, rejects stale `contentVersion`, seed or board mismatches, replays the envelope through `js/rules.js`, labels entries `validated` or casual (plausibility-checked), keeps 200 per board, rate-limits 120 req/min per identity, 256 KB bodies, atomic table writes |
+| Realtime rooms, matchmaking, session invites, chat, voice, replays | No | Solo game; the only platform session is the short practice session that posts a score, so no platform achievements or other session features exist |
 
 Conventions follow https://wiki.starhermit.com/ (same-origin `/api/v1`, `Authorization: Bearer`
 with the launch token, structured `{"error": …}` responses, `Retry-After` on 429).
