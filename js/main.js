@@ -113,7 +113,9 @@ class App {
 
     // Mid-round crash recovery.
     const snap = GameSession.loadSafeSnapshot(localStorage);
-    if (snap && snap.phase !== Phase.TERMINAL && !this._awayShown) {
+    if (this._cloudDoc) {
+      // An unresolved cloud conflict keeps its screen up; its buttons go to the title.
+    } else if (snap && snap.phase !== Phase.TERMINAL && !this._awayShown) {
       this._awayShown = true;
       this.session = snap;
       this._roundConfig = snap.rawConfig || snap.config;
@@ -425,8 +427,9 @@ class App {
     if (s.gatesPassed >= 100) unlock('centurion');
     this._lastEarned = earned;
 
-    // Cloud save (versioned, checksummed doc).
-    if (this.platform.hosted && !this.platform.profile.guest) {
+    // Cloud save (versioned, checksummed doc). Held while a conflict is unresolved,
+    // or the stale local doc would overwrite the other device's cloud save.
+    if (this.platform.hosted && !this.platform.profile.guest && !this._cloudDoc) {
       this.platform.saveProgress(this.save).then((r) => {
         // A conflict returns the OTHER device's prior snapshot in `remote`.
         // Resolve against it directly rather than re-fetching (which would
@@ -647,7 +650,7 @@ class App {
             // never strand the frozen round behind no UI.
             this.ui.hide();
             this.ui.show('pause');
-          } else if (this.ui._current && !['title'].includes(this.ui._current)) {
+          } else if (this.ui._current && !['title', 'conflict'].includes(this.ui._current)) { // conflict needs a choice
             this.ui.hide();
             this._backFromScreen();
           }
@@ -855,9 +858,9 @@ class App {
     on('board-local', () => this._loadBoard('local'));
 
     // Cloud conflict.
-    on('btn-keep-local', () => { this.ui.hide(); this._toTitle('conflict-local'); });
-    on('btn-keep-cloud', () => { this._save.doc = migrateRemote(this._cloudDoc); this.persist(); this._applySettings(); this.ui.hide(); this._toTitle('conflict-cloud'); });
-    on('btn-merge', () => { this._save.doc = mergeSaves(this.save, this._cloudDoc); this.persist(); this._applySettings(); this.ui.hide(); this._toTitle('conflict-merge'); });
+    on('btn-keep-local', () => { this._cloudDoc = null; this.ui.hide(); this._toTitle('conflict-local'); });
+    on('btn-keep-cloud', () => { this._save.doc = migrateRemote(this._cloudDoc); this._cloudDoc = null; this.persist(); this._applySettings(); this.ui.hide(); this._toTitle('conflict-cloud'); });
+    on('btn-merge', () => { this._save.doc = mergeSaves(this.save, this._cloudDoc); this._cloudDoc = null; this.persist(); this._applySettings(); this.ui.hide(); this._toTitle('conflict-merge'); });
 
     // Away screen.
     on('btn-away-continue', () => {
