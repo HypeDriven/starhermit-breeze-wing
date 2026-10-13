@@ -1041,7 +1041,7 @@ export class Renderer {
     this._applySize();
     if (this.composer) {
       try {
-        this.composer.render(dtReal);
+        (globalThis.GameOptions ? globalThis.GameOptions.draw(this.composer.renderer, () => this.composer.render(dtReal)) : this.composer.render(dtReal));
         return;
       } catch {
         this.postFailed = true;
@@ -1049,7 +1049,7 @@ export class Renderer {
         this.canvas.dataset.gfxPost = 'failed';
       }
     }
-    this.renderer.render(this.scene, this.camera);
+    (globalThis.GameOptions ? globalThis.GameOptions.draw(this.renderer, () => this.renderer.render(this.scene, this.camera)) : this.renderer.render(this.scene, this.camera));
   }
 
   _stepMotes(dt, scroll) {
