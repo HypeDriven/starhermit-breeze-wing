@@ -530,7 +530,11 @@
       title.value = ''; details.value = ''; status.textContent = t[19];
     } catch (error) {
       status.textContent = error?.status === 429 ? t[21] : t[20];
-    } finally { button.disabled = false; }
+    } finally {
+      // Disabling the focused button drops focus to <body>; restore it so dialog keys (Escape) keep working.
+      const refocus = doc.activeElement === button || doc.activeElement === doc.body;
+      button.disabled = false; if (refocus) button.focus();
+    }
   }
   function refreshPanels() {
     const t = strings();
@@ -592,7 +596,7 @@
       .game-options-controls h3{margin:12px 0 8px;font-size:1.1em}
       .game-options-row{box-sizing:border-box;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(90px,42%) auto;align-items:center;gap:8px;margin:8px 0;width:100%;min-height:44px;white-space:normal!important}
       .game-options-row[hidden]{display:none!important}
-      .game-options-row>span{min-width:0;overflow-wrap:anywhere}
+      .game-options-row>span{min-width:0;overflow-wrap:break-word;hyphens:auto}
       .game-options-row input,.game-options-row select{box-sizing:border-box;min-width:0;max-width:100%;width:100%;min-height:44px;font:inherit;color:inherit;accent-color:var(--accent,#a9cfff)}
       .game-options-row select,.game-options-row input[type=number],.game-options-row input[type=text]{background:var(--panel2,#202735);color:var(--text,#f4f6ff);border:1px solid #687080;border-radius:5px;padding:5px}
       .game-options-row input[type=checkbox]{width:22px;min-height:22px;justify-self:end}
@@ -601,7 +605,7 @@
       .game-options-row textarea{box-sizing:border-box;width:100%;min-width:0;max-width:100%;font:inherit;color:var(--text,#f4f6ff);background:var(--panel2,#202735);border:1px solid #687080;border-radius:5px;padding:5px;resize:vertical}
       .game-options-report .game-options-row{grid-template-columns:minmax(0,1fr) minmax(120px,62%)}
       .game-options-report-send{min-height:44px;padding:0 16px;font:inherit;color:var(--text,#f4f6ff);background:var(--panel2,#202735);border:1px solid #687080;border-radius:5px;cursor:pointer}
-      .game-options-summary{font-size:.85em;white-space:normal;overflow-wrap:anywhere}
+      .game-options-summary{font-size:.85em;white-space:normal;overflow-wrap:break-word;hyphens:auto}
       .game-options-dialog{box-sizing:border-box;width:min(580px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:20px;background:var(--panel,#202735);color:var(--text,#f4f6ff);border:1px solid #687080;border-radius:10px}
       .game-options-dialog::backdrop{background:#0009}
       @media(max-width:480px){.game-options-row{grid-template-columns:minmax(0,1fr) minmax(80px,40%) auto;gap:5px;font-size:.9em}}
