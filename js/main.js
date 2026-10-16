@@ -24,19 +24,24 @@ const KEY_DEFAULTS = {
   flap: ['Space', 'ArrowUp', 'KeyW'], pause: ['Escape', 'KeyP'], undo: ['KeyU'], restart: ['KeyR'], help: ['KeyH'],
 };
 const KEY_NAMES = { Space: 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Escape: 'Esc' };
-const ACCOUNT = accountStrings(typeof navigator !== 'undefined' ? navigator.language : 'en-US');
+// Account strings follow the one game language (js/i18n.js); refreshed on change.
+const I18N = window.BWI18N;
+let ACCOUNT = accountStrings(I18N ? I18N.lang : 'en-US');
 import { AudioEngine } from './audio.js';
-import { UI } from './ui.js';
+import { UI, T, cfgName } from './ui.js';
 import { Platform } from './platform.js';
 import { loadSave, writeSave, mergeSaves, isDescendant, migrate } from './store.js';
 
 const $ = (id) => document.getElementById(id);
 
+/** Marks an English key that is translated with T() when shown. */
+const N = (s) => s;
+
 const INVALID_TEXT = {
-  'no-moves-remaining': 'No flaps left — glide it in!',
-  'session-over': 'This round is over.',
-  'unknown-action': 'That action is not available.',
-  'duplicate-command': 'Already registered.',
+  'no-moves-remaining': N('No flaps left — glide it in!'),
+  'session-over': N('This round is over.'),
+  'unknown-action': N('That action is not available.'),
+  'duplicate-command': N('Already registered.'),
 };
 
 class App {
@@ -79,7 +84,7 @@ class App {
 
     this._save = loadSave(localStorage);
     if (this._save.status === 'corrupt-reset') {
-      this.ui.toast('Save data was corrupted; a fresh profile was created.');
+      this.ui.toast(() => T('Save data was corrupted; a fresh profile was created.'));
     }
 
     // Hosted handshake (graceful offline fallback).
@@ -88,7 +93,7 @@ class App {
     this.platform.onSync(() => {
       this.ui.setProfileChip(this.platform.profile, this.platform.hosted, this.platform.sync);
     });
-    if (boot.mode === 'degraded') this.ui.toast('Playing offline — progress stays on this device.');
+    if (boot.mode === 'degraded') this.ui.toast(() => T('Playing offline — progress stays on this device.'));
     this._initAccount();
 
     // Renderer.
@@ -99,7 +104,7 @@ class App {
       graphics: gfxSaved,
       reducedMotion: this.settings.reducedMotion,
     });
-    this.gfxPanel = new GraphicsPanel($('gfx-fieldset'), this.renderer, localStorage, gfxSaved, navigator.language);
+    this.gfxPanel = new GraphicsPanel($('gfx-fieldset'), this.renderer, localStorage, gfxSaved, I18N ? I18N.lang : navigator.language);
     this.renderer.setAssistArc(this.settings.assistArc);
     this.audio.setCaptionSink((t) => this.ui.caption(t));
 
@@ -107,6 +112,7 @@ class App {
     this._bindUI();
     this._bindInput();
     this._bindLifecycle();
+    document.addEventListener('bw-language', () => this._onLanguage());
 
     // Cloud save conflict resolution (hosted accounts only).
     await this._syncCloud();
@@ -162,10 +168,12 @@ class App {
       if (!a.signedIn) {
         this.ui.setProfileAvatar(null);
         this.ui.setProfileChip(P.profile, P.hosted, P.sync);
-        this.ui.toast(ACCOUNT.signedOut);
+        this.ui.toast(() => ACCOUNT.signedOut);
       }
       this._refreshAccountButtons();
     });
+    // Another device saved first: merge both sides and save again.
+    P.onConflict((remote) => this._mergeCloud(remote));
     this._refreshAccountButtons();
   }
 
@@ -180,7 +188,7 @@ class App {
   async _copyInvite() {
     const link = this.platform.inviteLink();
     if (!link) return;
-    try { await navigator.clipboard.writeText(link); this.ui.toast(ACCOUNT.inviteCopied); }
+    try { await navigator.clipboard.writeText(link); this.ui.toast(() => ACCOUNT.inviteCopied); }
     catch { this.ui.toast(`${ACCOUNT.inviteFailed} ${link}`, 6000); }
   }
 
@@ -226,6 +234,47 @@ class App {
     this.ui.show('conflict');
   }
 
+  /**
+   * Runtime conflict (the SDK refused a write because another device saved
+   * since our last load): keep the better of both sides — mergeSaves is a
+   * union that keeps every lesson, cleared stage, best score and achievement —
+   * adopt it and save again. The round in play lives in the session, not the
+   * save document, so it is untouched.
+   */
+  _mergeCloud(remote) {
+    if (this._cloudDoc) return; // the boot-time choice screen is still open
+    if (remote) {
+      this._save.doc = mergeSaves(this.save, remote);
+      writeSave(localStorage, this.save);
+      this._applySettings();
+      if (this.appState === 'title') this._toTitle('cloud-merge');
+    }
+    this.platform.saveProgress(this.save);
+  }
+
+  /**
+   * Language change (Settings → Language, or the account preference arriving):
+   * static markup is re-applied by js/i18n.js; everything written from code is
+   * re-rendered here without touching the round in play.
+   */
+  _onLanguage() {
+    ACCOUNT = accountStrings(I18N.lang);
+    if (this.gfxPanel) this.gfxPanel.setLocale(I18N.lang);
+    this._refreshAccountButtons();
+    this._renderKeys();
+    this.ui.setProfileChip(this.platform.profile, this.platform.hosted, this.platform.sync);
+    this.ui.buildJourneyGrid(this.progress, (i) => this._openSetup(JOURNEY[i]));
+    this.ui.el.dailySub.textContent = this._dailyDone() ? T('done today ✓') : T("today's shared sky");
+    if (this._setupView) this._renderSetup();
+    if (this._resultsView) this._renderResults();
+    if (this._boardView) this.ui.buildBoard(this._boardView.entries, this._boardView.note());
+    if (this._awaySnap) this._renderAway(this._awaySnap);
+    if (this._countdownPrompt && this._countdownKey) this.ui.countdown(T(this._countdownKey), this._countdownPrompt());
+    this.ui.buildAchievements(this.progress);
+    this._hudUpdate();
+    this.ui.relocalizeToast();
+  }
+
   /* ======================= state transitions ======================== */
 
   _toTitle(reason) {
@@ -235,7 +284,8 @@ class App {
     this.ui.setHudVisible(false);
     this.ui.show('title');
     this.ui.buildJourneyGrid(this.progress, (i) => this._openSetup(JOURNEY[i]));
-    this.ui.el.dailySub.textContent = this._dailyDone() ? 'done today ✓' : "today's shared sky";
+    this.ui.el.dailySub.textContent = this._dailyDone() ? T('done today ✓') : T("today's shared sky");
+    this._setupView = null; this._resultsView = null; this._boardView = null; this._countdownPrompt = null;
     this.audio.setMusicIntensity(0.2);
   }
 
@@ -243,22 +293,31 @@ class App {
     return !!this.progress.best[dailyContent(this.platform.now()).id];
   }
 
+  /** blurb: a function returning localized text (re-run on language change). */
   _openSetup(cfg, blurb, options) {
     this.pendingConfig = cfg;
     this.appState = 'mode-setup';
-    this.ui.fillSetup(cfg, blurb);
-    if (options && options.length) {
-      this.ui.fillSetupOptions(options, options[0].id, (id) => {
+    this._setupView = { blurb: typeof blurb === 'function' ? blurb : () => (blurb ? T(blurb) : ''), options: options || null, selected: options && options.length ? options[0].id : null };
+    this._renderSetup();
+    this.ui.el.setupAssistArc.checked = this.settings.assistArc;
+    this.ui.show('setup');
+  }
+
+  _renderSetup() {
+    const v = this._setupView;
+    this.ui.fillSetup(this.pendingConfig, v.blurb());
+    if (v.options && v.options.length) {
+      const items = v.options.map((o) => ({ id: o.id, name: T(o.name), desc: o.desc ? o.desc() : '' }));
+      this.ui.fillSetupOptions(items, v.selected, (id) => {
         this.audio.event('ui');
-        const picked = options.find((o) => o.id === id);
+        const picked = v.options.find((o) => o.id === id);
         if (picked && picked.config) this.pendingConfig = picked.config;
-        this.ui.fillSetup(this.pendingConfig, blurb);
+        v.selected = id;
+        this._renderSetup();
       });
     } else {
       this.ui.el.setupOptions.innerHTML = '';
     }
-    this.ui.el.setupAssistArc.checked = this.settings.assistArc;
-    this.ui.show('setup');
   }
 
   _beginRound(reason) {
@@ -288,25 +347,29 @@ class App {
     this.ui.setHudVisible(true);
     this._hudUpdate();
     this.ui.show('countdown');
-    this.ui.announce(`${cfg.name}. Get ready.`);
+    this.ui.announce(T('{name}. Get ready.', { name: cfgName(cfg) }));
+    this._setupView = null; this._resultsView = null;
 
     // Countdown (interruptible): 3·2·1·go — timers owned here.
-    const prompt = cfg.lesson ? cfg.lesson.prompt : 'Flap to take off!';
-    const seq = ['3', '2', '1', 'Go!'];
+    const prompt = () => T(cfg.lesson ? cfg.lesson.prompt : N('Flap to take off!'));
+    this._countdownPrompt = prompt;
+    const seq = ['3', '2', '1', N('Go!')];
     seq.forEach((txt, i) => {
       this.countdownTimers.push(setTimeout(() => {
-        this.ui.countdown(txt, prompt);
+        this._countdownKey = txt;
+        this.ui.countdown(T(txt), prompt());
         this.audio.event('countdown', { final: i === seq.length - 1 });
-        this.ui.announce(txt);
+        this.ui.announce(T(txt));
         if (i === seq.length - 1) {
           this.countdownTimers.push(setTimeout(() => {
             this.ui.hide();
             this.appState = 'active';
             this.ui.el.tapHint.hidden = !('ontouchstart' in window) || !!cfg.lesson;
+            this._countdownPrompt = null;
             if (cfg.lesson) {
               this.ui.el.tapHint.hidden = true;
-              this.ui.announce(cfg.lesson.prompt);
-              this.ui.toast(cfg.lesson.prompt, 5000);
+              this.ui.announce(T(cfg.lesson.prompt));
+              this.ui.toast(() => T(cfg.lesson.prompt), 5000);
             }
           }, 600));
         }
@@ -318,10 +381,11 @@ class App {
     if (this.appState !== 'active' && this.appState !== 'countdown') return;
     this.appState = 'paused';
     this._clearCountdown();
+    this.ui.el.tapHint.hidden = true; // never covers the pause or settings screens
     this.ui.show('pause');
     this.ui.setHudVisible(true);
     this.audio.event('ui');
-    this.ui.announce('Paused.');
+    this.ui.announce(T('Paused.'));
     if (this.session) this.session.saveSafeSnapshot(localStorage);
   }
 
@@ -329,7 +393,7 @@ class App {
     if (!this.session || this.session.phase === Phase.TERMINAL) return;
     this.ui.hide();
     this.appState = 'active';
-    this.ui.announce('Resumed.');
+    this.ui.announce(T('Resumed.'));
   }
 
   _leaveRound() {
@@ -358,7 +422,7 @@ class App {
     this._fillResults(s, won, breakdownExtra);
     this.ui.show('results');
     this.audio.setMusicIntensity(0.2);
-    this.ui.announce(`${won ? 'Stage clear' : 'Flight ended'}. Score ${s.score.total}.`);
+    this.ui.announce(T(won ? 'Stage clear. Score {n}.' : 'Flight ended. Score {n}.', { n: s.score.total }));
     this.persist();
   }
 
@@ -391,7 +455,7 @@ class App {
       if ((p.best[cfg.id] || 0) < s.score.total) {
         const hadBest = (p.best[cfg.id] || 0) > 0;
         p.best[cfg.id] = s.score.total;
-        if (cfg.mode === 'daily' || cfg.mode === 'chase') extras.push('New personal best!');
+        if (cfg.mode === 'daily' || cfg.mode === 'chase') extras.push(N('New personal best!'));
         // Sting only when an existing best is beaten; a first score is not a record.
         if (hadBest && s.score.total > 0) this.audio.event('best');
       }
@@ -428,15 +492,10 @@ class App {
     this._lastEarned = earned;
 
     // Cloud save (versioned, checksummed doc). Held while a conflict is unresolved,
-    // or the stale local doc would overwrite the other device's cloud save.
+    // or the stale local doc would overwrite the other device's cloud save. A write
+    // that loses to another device is merged and re-saved by _mergeCloud.
     if (this.platform.hosted && !this.platform.profile.guest && !this._cloudDoc) {
-      this.platform.saveProgress(this.save).then((r) => {
-        // A conflict returns the OTHER device's prior snapshot in `remote`.
-        // Resolve against it directly rather than re-fetching (which would
-        // compare the local doc against a copy of itself and drop the other
-        // device's progress).
-        if (r && r.conflict && r.remote) this._resolveCloudConflict(r.remote);
-      });
+      this.platform.saveProgress(this.save);
     }
 
     // Ranked rounds (Daily Breeze, Score Chase) post their total to the
@@ -448,29 +507,37 @@ class App {
   }
 
   _fillResults(s, won, extras) {
-    const cfg = this._roundConfig || s.config;
+    this._resultsView = { s, won, extras, cfg: this._roundConfig || s.config };
+    this._lbText = null;
+    this._renderResults();
+    this.ui.fillEarned(this._lastEarned || []);
+    this._postToLeaderboard(this._lbRound);
+  }
+
+  _renderResults() {
+    const { s, won, extras, cfg } = this._resultsView;
     const reasonText = {
-      floor: 'You met the sea.',
-      ceiling: 'You clipped the sky.',
-      gate: 'A gate edge caught your wing.',
-      'move-limit': 'Out of flaps — so close!',
-      'time-up': 'Time ran out.',
-      cleared: cfg.mode === 'learn' ? 'Lesson complete!' : 'Every gate threaded.',
-      abandon: 'You headed home early.',
+      floor: N('You met the sea.'),
+      ceiling: N('You clipped the sky.'),
+      gate: N('A gate edge caught your wing.'),
+      'move-limit': N('Out of flaps — so close!'),
+      'time-up': N('Time ran out.'),
+      cleared: cfg.mode === 'learn' ? N('Lesson complete!') : N('Every gate threaded.'),
+      abandon: N('You headed home early.'),
     }[s.terminal ? s.terminal.reason : 'abandon'];
-    const parts = [reasonText];
-    if (extras && extras.length) parts.push(...extras);
-    if (this.progress.best[cfg.id]) parts.push(`Best here: ${this.progress.best[cfg.id]}`);
+    const parts = [T(reasonText)];
+    if (extras && extras.length) parts.push(...extras.map((e) => T(e)));
+    if (this.progress.best[cfg.id]) parts.push(T('Best here: {n}', { n: this.progress.best[cfg.id] }));
 
     // Next recommended action.
     let nextLabel = null;
     if (cfg.mode === 'journey' && won && cfg.index + 1 < JOURNEY.length) {
-      nextLabel = `Next: ${JOURNEY[cfg.index + 1].name} →`;
+      nextLabel = T('Next: {name}', { name: cfgName(JOURNEY[cfg.index + 1]) }) + ' →';
       this._nextConfig = JOURNEY[cfg.index + 1];
     } else if (cfg.mode === 'learn' && won) {
       const idx = LESSONS.findIndex((l) => l.id === cfg.id);
       if (idx >= 0 && idx + 1 < LESSONS.length) {
-        nextLabel = `Next lesson →`;
+        nextLabel = T('Next lesson') + ' →';
         this._nextConfig = LESSONS[idx + 1];
       }
     } else {
@@ -479,11 +546,12 @@ class App {
 
     this.ui.fillResults(s, {
       won, blurb: parts.join(' '), extra: '',
-      boardNote: cfg.ranked ? 'Ranked round — replay recorded for verification.' : 'Unranked — practice never affects rating.',
+      boardNote: T(cfg.ranked ? 'Ranked round — replay recorded for verification.' : 'Unranked — practice never affects rating.'),
       nextLabel,
     });
     this.ui.fillEarned(this._lastEarned || []);
-    this._postToLeaderboard(this._lbRound);
+    const line = $('results-lb');
+    if (line && !line.hidden) line.textContent = this._lbText ? this._lbText() : ACCOUNT.lbPosting;
   }
 
   /** Hosted only: post the round and show the leaderboard line on the results screen. */
@@ -496,8 +564,9 @@ class App {
     const session = this.session;
     this.platform.submitScore(round).then((r) => {
       if (this.session !== session) return;
-      line.textContent = !r.posted ? ACCOUNT.lbNotPosted
-        : r.rank ? ACCOUNT.lbRank.replace('{rank}', r.rank) : ACCOUNT.lbPosted;
+      this._lbText = () => (!r.posted ? ACCOUNT.lbNotPosted
+        : r.rank ? ACCOUNT.lbRank.replace('{rank}', r.rank) : ACCOUNT.lbPosted);
+      line.textContent = this._lbText();
     });
   }
 
@@ -515,18 +584,19 @@ class App {
         case 'start': this.audio.event('start'); break;
         case 'pass':
           this.audio.event('pass');
-          this.ui.announce(`Gate ${state.gatesPassed}. Score ${state.score.total}.`);
+          this.ui.announce(T('Gate {n}. Score {score}.', { n: state.gatesPassed, score: state.score.total }));
           break;
         case 'centered':
           this.audio.event('centered');
           if (e.streak >= 3) this.audio.event('streak', { streak: e.streak });
           this._haptic(20);
-          if (e.streak >= 2) this.ui.announce(`Centered! Streak ${e.streak}.`);
+          if (e.streak >= 2) this.ui.announce(T('Centered! Streak {n}.', { n: e.streak }));
           break;
         case 'invalid': {
           this.audio.event('invalid');
-          const msg = INVALID_TEXT[e.reason] || 'Not available right now.';
-          this.ui.toast(msg);
+          const key = INVALID_TEXT[e.reason] || N('Not available right now.');
+          const msg = T(key);
+          this.ui.toast(() => T(key));
           this.ui.alert(msg);
           break;
         }
@@ -542,7 +612,7 @@ class App {
           break;
         case 'undo':
           this.audio.event('undo');
-          this.ui.announce('Undid the last flap.');
+          this.ui.announce(T('Undid the last flap.'));
           break;
         default: break;
       }
@@ -556,16 +626,16 @@ class App {
     const cfg = s.config;
     const goal = cfg.goal;
     let progress = '';
-    if (goal.type === 'gates' || (cfg.params.gateCount > 0)) progress = `${s.gatesPassed} / ${cfg.params.gateCount || goal.value} gates`;
-    else if (goal.type === 'flaps') progress = `${s.flapsUsed} / ${goal.value} flaps`;
-    else progress = `${s.gatesPassed} gates`;
+    if (goal.type === 'gates' || (cfg.params.gateCount > 0)) progress = T('{n} / {total} gates', { n: s.gatesPassed, total: cfg.params.gateCount || goal.value });
+    else if (goal.type === 'flaps') progress = T('{n} / {total} flaps', { n: s.flapsUsed, total: goal.value });
+    else progress = T('{n} gates', { n: s.gatesPassed });
     const moves = cfg.params.moveLimit > 0 ? Math.max(0, cfg.params.moveLimit - s.flapsUsed) : null;
     let timeLeft = null;
     if (goal.type === 'survive' && goal.value > 0) {
       timeLeft = `${Math.max(0, Math.ceil((goal.value - s.tick) / TICKS_PER_SECOND))}s`;
     }
     this.ui.hud({
-      objective: cfg.name,
+      objective: cfgName(this._roundConfig || cfg),
       progress,
       score: s.score.total,
       streak: s.streak,
@@ -781,16 +851,16 @@ class App {
     // Title.
     on('btn-play', () => {
       // Short path to play: continue journey, or learn first.
-      if (!this.progress.tutorialDone) this._openSetup(LESSONS[0], 'Sixty seconds to learn the sky.');
+      if (!this.progress.tutorialDone) this._openSetup(LESSONS[0], N('Sixty seconds to learn the sky.'));
       else {
         const next = JOURNEY.find((st) => !(this.progress.journey[st.id] && this.progress.journey[st.id].cleared)) || JOURNEY[0];
-        this._openSetup(next, 'Pick up where you left off.');
+        this._openSetup(next, N('Pick up where you left off.'));
       }
     });
     on('btn-daily', () => {
       const cfg = dailyContent(this.platform.now());
-      const note = this.platform.timeTrusted ? 'Synchronized to server time.' : 'Using local clock (offline).';
-      this._openSetup(cfg, `One shared sky for everyone today. ${note}`);
+      const note = this.platform.timeTrusted ? N('Synchronized to server time.') : N('Using local clock (offline).');
+      this._openSetup(cfg, () => T('One shared sky for everyone today.') + ' ' + T(note));
     });
     on('btn-journey', () => {
       this.appState = 'mode-select';
@@ -799,24 +869,24 @@ class App {
     });
     on('btn-learn', () => {
       const options = LESSONS.map((l) => ({
-        id: l.id, name: l.name, desc: l.lesson.goalText, config: l,
+        id: l.id, name: l.name, desc: () => T(l.lesson.goalText), config: l,
       }));
-      this._openSetup(LESSONS[0], 'Five tiny lessons, one rule at a time.', options);
+      this._openSetup(LESSONS[0], N('Five tiny lessons, one rule at a time.'), options);
     });
     on('btn-practice', () => {
       const options = PRACTICE_PRESETS.map((p) => ({
-        id: p.id, name: p.name, desc: `${p.difficulty} — endless, undo allowed, unranked`, config: p,
+        id: p.id, name: p.name, desc: () => T('{difficulty} — endless, undo allowed, unranked', { difficulty: T(p.difficulty) }), config: p,
       }));
-      this._openSetup(PRACTICE_PRESETS[0], 'Free flight. Undo is allowed; nothing is ranked.', options);
+      this._openSetup(PRACTICE_PRESETS[0], N('Free flight. Undo is allowed; nothing is ranked.'), options);
     });
     on('btn-challenge', () => {
-      const options = CHALLENGES.map((c) => ({ id: c.id, name: c.name, desc: c.blurb, config: c }));
-      this._openSetup(CHALLENGES[0], 'Constrained goals for seasoned wings.', options);
+      const options = CHALLENGES.map((c) => ({ id: c.id, name: c.name, desc: () => T(c.blurb), config: c }));
+      this._openSetup(CHALLENGES[0], N('Constrained goals for seasoned wings.'), options);
     });
     on('btn-chase', () => {
       const seed = this.chaseSeed || `sky-${new Date().toISOString().slice(0, 10)}`;
       const cfg = scoreChaseContent(seed);
-      this._openSetup(cfg, `Endless score chase. Share the seed "${seed}" to fly the same sky as friends.`);
+      this._openSetup(cfg, () => T('Endless score chase. Share the seed "{seed}" to fly the same sky as friends.', { seed }));
     });
     on('btn-boards', () => this._openBoards());
     on('btn-achievements', () => {
@@ -886,14 +956,19 @@ class App {
 
   _showAway(snap) {
     this.appState = 'paused';
-    const cfg = snap.config;
-    $('away-summary').textContent =
-      `While you were away: your ${cfg.name} flight was kept safe — ` +
-      `${snap.state.gatesPassed} gates, score ${snap.state.score.total}, ` +
-      `${Math.round(snap.state.tick / TICKS_PER_SECOND)}s in. The sky waited for you.`;
+    this._awaySnap = snap;
+    this._renderAway(snap);
     this.ui.setHudVisible(true);
     this._hudUpdate();
     this.ui.show('away');
+  }
+
+  _renderAway(snap) {
+    if ($('screen-away').hidden) { this._awaySnap = null; return; }
+    $('away-summary').textContent = T('While you were away: your {name} flight was kept safe — {gates} gates, score {score}, {secs}s in. The sky waited for you.', {
+      name: cfgName(snap.rawConfig || snap.config), gates: snap.state.gatesPassed, score: snap.state.score.total,
+      secs: Math.round(snap.state.tick / TICKS_PER_SECOND),
+    });
   }
 
   async _openBoards() {
@@ -906,16 +981,20 @@ class App {
     for (const id of ['board-global', 'board-friends', 'board-local']) {
       $(id).setAttribute('aria-selected', String(id === `board-${which}`));
     }
+    const show = (entries, note) => {
+      this._boardView = { entries, note: () => T(note) };
+      this.ui.buildBoard(entries, T(note));
+    };
     if (which === 'local') {
-      this.ui.buildBoard(this.progress.localBoard, 'Scores from this device. Casual — verified boards require sign-in.');
+      show(this.progress.localBoard, N('Scores from this device. Casual — verified boards require sign-in.'));
       return;
     }
     const entries = await this.platform.leaderboard('high-score', { friendsOnly: which === 'friends' });
     if (entries === null) {
-      this.ui.buildBoard(this.progress.localBoard,
-        this.platform.hosted ? 'Board unavailable right now — showing local scores.' : 'Offline — showing this device\'s scores. Sign in for global boards.');
+      show(this.progress.localBoard,
+        this.platform.hosted ? N('Board unavailable right now — showing local scores.') : N('Offline — showing this device\'s scores. Sign in for global boards.'));
     } else {
-      this.ui.buildBoard(entries, which === 'friends' ? 'Friends only — high scores from Daily Breeze and Score Chase.' : 'High scores from Daily Breeze and Score Chase.');
+      show(entries, which === 'friends' ? N('Friends only — high scores from Daily Breeze and Score Chase.') : N('High scores from Daily Breeze and Score Chase.'));
     }
   }
 
@@ -965,7 +1044,7 @@ class App {
       this.progress.tutorialDone = false;
       this.persist();
       this.ui.hide();
-      this._openSetup(LESSONS[0], 'Sixty seconds to learn the sky.');
+      this._openSetup(LESSONS[0], N('Sixty seconds to learn the sky.'));
     });
   }
 
@@ -1001,5 +1080,5 @@ window.__bw = app;
 app.start().catch((err) => {
   console.error('boot failed', err);
   const t = document.getElementById('toast');
-  if (t) { t.textContent = 'Something went wrong starting Breeze Wing. Please reload.'; t.hidden = false; }
+  if (t) { t.textContent = T('Something went wrong starting Breeze Wing. Please reload.'); t.hidden = false; }
 });

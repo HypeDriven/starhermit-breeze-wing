@@ -92,7 +92,7 @@ export const GFX_STRINGS = {
   'fr-FR': FR_FR, 'fr-CA': FR_CA, 'pt-BR': PT_BR, 'it-IT': IT_IT,
 };
 
-/** Best supported locale for a BCP-47 tag (the game has no language setting). */
+/** Best supported locale for a BCP-47 tag (the game passes its resolved language). */
 export function pickLocale(tag) {
   const t = String(tag || 'en-US');
   if (GFX_STRINGS[t]) return t;
@@ -276,18 +276,29 @@ export class GraphicsPanel {
     this.sync();
   }
 
+  /** Switch language: rebuild this panel's own controls in place (other sections in the fieldset stay). */
+  setLocale(locale) {
+    const next = pickLocale(locale);
+    if (next === this.locale) return;
+    this.locale = next;
+    this.s = GFX_STRINGS[next];
+    this._build();
+    this.sync();
+  }
+
   _build() {
     const s = this.s;
     const r = this.root;
-    r.replaceChildren();
+    // Only this panel's nodes are replaced; sections other code mounted into the
+    // fieldset (the shared Sound / Language / Report options) are kept.
+    for (const n of this._own || []) n.remove();
+    if (!this._own) r.replaceChildren();
     r.lang = this.locale;
     const legend = document.createElement('legend');
     legend.textContent = s.graphics;
-    r.append(legend);
 
     const grid = document.createElement('div');
     grid.className = 'gfx-grid';
-    r.append(grid);
 
     const field = (labelText, control) => {
       const label = document.createElement('label');
@@ -370,7 +381,8 @@ export class GraphicsPanel {
     this.postNote.className = 'gfx-note';
     this.postNote.textContent = s.postFailed;
     this.postNote.hidden = true;
-    r.append(this.summary, this.postNote);
+    this._own = [legend, grid, this.summary, this.postNote];
+    r.prepend(...this._own);
   }
 
   _commit() {

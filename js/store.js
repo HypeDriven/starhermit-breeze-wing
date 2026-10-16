@@ -116,7 +116,15 @@ export function mergeSaves(a, b) {
   for (const k of Object.keys(src.progress.lessons || {})) out.progress.lessons[k] = true;
   for (const [k, v] of Object.entries(src.progress.journey || {})) {
     const cur = out.progress.journey[k];
-    if (!cur || (v.bestScore || 0) > (cur.bestScore || 0)) out.progress.journey[k] = v;
+    if (!cur) { out.progress.journey[k] = v; continue; }
+    // Field by field: a stage cleared on either device stays cleared.
+    out.progress.journey[k] = {
+      ...cur,
+      cleared: !!(cur.cleared || v.cleared),
+      bestScore: Math.max(cur.bestScore || 0, v.bestScore || 0),
+      bestTicks: [cur.bestTicks, v.bestTicks].filter((t) => t > 0).reduce((a, b) => Math.min(a, b), Infinity),
+    };
+    if (!Number.isFinite(out.progress.journey[k].bestTicks)) out.progress.journey[k].bestTicks = 0;
   }
   Object.assign(out.progress.achievements, src.progress.achievements || {});
   out.progress.tutorialDone = !!(out.progress.tutorialDone || src.progress.tutorialDone);

@@ -21,6 +21,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SHOT = (stage, vp) => `/tmp/breeze-wing-e2e-${stage}-${vp}.png`;
@@ -156,6 +157,73 @@ async function graphicsFlow(page, vp, openSettings, closeSettings) {
 }
 
 /* ------------------------------- passes ------------------------------ */
+
+// Signed in against a stubbed StarHermit API whose account prefers fr-CA:
+// Automatic resolves to Canadian French; switching to Italian from Settings
+// during a paused round re-renders every screen, keeps the round and syncs
+// ui.language; Report a problem posts a bug report.
+async function languageFlow(page, vp, base) {
+  const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+  await page.goto('about:blank');
+  await page.goto(`${base}/index.html#game_token=${launchToken()}`, { waitUntil: 'load' });
+  await page.waitForFunction(() => document.documentElement.lang === 'fr-CA' && document.getElementById('btn-play').textContent === '▶ Jouer');
+  await page.waitForSelector('#screen-title:not([hidden])');
+  await page.click('#btn-journey');
+  await page.locator('.jstage').first().click();
+  await page.waitForFunction(() => document.getElementById('setup-heading').textContent === 'Aube de braise 1');
+  await page.click('#btn-setup-start');
+  await waitAppState(page, 'active', 8000);
+  await page.click('#btn-pause');
+  await page.waitForSelector('#screen-pause:not([hidden])');
+  const tick = await page.evaluate(() => window.__bw.session.state.tick);
+  await page.click('#btn-pause-settings');
+  await page.waitForFunction(() => document.getElementById('settings-heading').textContent === 'Paramètres');
+  const choice = page.locator('[data-game-language="choice"]');
+  await choice.scrollIntoViewIfNeeded();
+  const auto = await choice.locator('option').first().textContent();
+  if (auto !== 'Automatique — Français (Canada)') throw new Error('Automatic label not resolved: ' + auto);
+  if (await page.locator('[data-game-language="choice"]').count() !== 1) throw new Error('expected exactly one language selector');
+  await choice.selectOption('it-IT');
+  await page.waitForFunction(() => document.documentElement.lang === 'it-IT' &&
+    document.getElementById('settings-heading').textContent === 'Impostazioni' &&
+    document.querySelector('#gfx-fieldset legend').textContent === 'Grafica');
+  await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]')?.textContent || ''));
+  if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+  const report = page.locator('[data-game-report="title"]');
+  await report.scrollIntoViewIfNeeded();
+  await report.fill('Test report');
+  await page.click('[data-game-report="send"]');
+  await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+  if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+  const spill = await page.evaluate(() => {
+    const w = document.documentElement.clientWidth;
+    return [...document.querySelectorAll('#screen-settings select, #screen-settings input, #screen-settings button, #screen-settings textarea, #screen-settings label')]
+      .filter((n) => n.offsetParent && n.getBoundingClientRect().right > w + 1).map((n) => n.outerHTML.slice(0, 60));
+  });
+  if (spill.length) throw new Error('settings controls cut off: ' + spill.join(','));
+  await page.screenshot({ path: SHOT('language', vp) });
+  await page.locator('#btn-settings-back').scrollIntoViewIfNeeded();
+  await page.click('#btn-settings-back');
+  await page.waitForFunction(() => document.getElementById('pause-heading').textContent === 'In pausa' &&
+    document.getElementById('btn-resume').textContent === 'Riprendi' &&
+    document.getElementById('hud-objective').textContent === 'Alba di brace 1');
+  const after = await page.evaluate(() => ({ state: window.__bw.appState, tick: window.__bw.session.state.tick }));
+  if (after.state !== 'paused' || after.tick !== tick) throw new Error('round changed during the language switch: ' + JSON.stringify(after));
+  await page.click('#btn-leave');
+  await page.waitForSelector('#screen-results:not([hidden])', { timeout: 8000 });
+  const heading = await page.locator('#results-heading').textContent();
+  if (!/Cieli sereni!|Volo finito/.test(heading)) throw new Error('results not Italian: ' + heading);
+  await page.click('#btn-results-menu');
+  await page.waitForSelector('#screen-title:not([hidden])');
+  await page.click('#btn-settings');
+  await choice.scrollIntoViewIfNeeded();
+  await choice.selectOption('auto');
+  await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+  await page.locator('#btn-settings-back').scrollIntoViewIfNeeded();
+  await page.click('#btn-settings-back');
+  await page.waitForFunction(() => document.getElementById('btn-play').textContent === '▶ Jouer');
+  await page.unroute(/\/api\/v1\//);
+}
 
 async function desktopPass(browser, base, errors) {
   const vp = 'desktop';
@@ -327,6 +395,8 @@ async function desktopPass(browser, base, errors) {
     });
   });
 
+  await step('Language: Automatic follows the StarHermit preference; live switch mid-round; ui.language; report a problem', () => languageFlow(page, vp, base));
+
   await context.close();
 }
 
@@ -421,6 +491,8 @@ async function mobilePass(browser, base, errors) {
     await page.tap('#btn-leave');
     await page.waitForSelector('#screen-results:not([hidden])', { timeout: 8000 });
   });
+
+  await step('Language: Automatic follows the StarHermit preference; live switch mid-round; ui.language; report a problem', () => languageFlow(page, vp, base));
 
   await context.close();
 }

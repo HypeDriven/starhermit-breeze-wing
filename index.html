@@ -46,7 +46,7 @@
   <section id="screen-title" class="screen panel-screen" aria-labelledby="title-heading">
     <div class="panel title-panel">
       <img class="title-emblem" src="assets/title-emblem.webp" width="320" height="320" alt="" decoding="async" onerror="this.hidden=true">
-      <h1 id="title-heading" class="game-logo">Breeze <span>Wing</span></h1>
+      <h1 id="title-heading" class="game-logo" data-i18n-skip>Breeze <span>Wing</span></h1>
       <p class="tagline">Tap to fly. Thread the gates. Chase the horizon.</p>
       <button id="btn-play" class="btn btn-primary btn-big">▶ Play</button>
       <div class="title-row">
@@ -157,11 +157,11 @@
     <div class="panel panel-wide">
       <h2 id="help-heading">How to play</h2>
       <div class="rule-cards">
-        <article class="rule-card"><h3>One button</h3><p><span id="keys-flap"><kbd>Space</kbd> / <kbd>↑</kbd> / <kbd>W</kbd></span>, click, or tap to flap. Each flap gives instant lift. That is the whole control scheme.</p></article>
+        <article class="rule-card"><h3>One button</h3><p><span id="keys-flap"><kbd>Space</kbd> / <kbd>↑</kbd> / <kbd>W</kbd></span> <span>— or click, or tap — to flap. Each flap gives instant lift. That is the whole control scheme.</span></p></article>
         <article class="rule-card"><h3>Gates</h3><p>Pillars drift toward you. Pass through the glowing gap. Touching an edge, the sky ceiling, or the sea ends the flight.</p></article>
-        <article class="rule-card"><h3>Scoring</h3><p>Each gate: <strong>100</strong>. Near-center pass: up to <strong>+50</strong>. Consecutive centered passes build a streak worth up to <strong>+100</strong> per gate. Finish under par for a time bonus.</p></article>
-        <article class="rule-card"><h3>Keyboard</h3><p><span id="keys-pause"><kbd>Esc</kbd>/<kbd>P</kbd></span> pause · <span id="keys-undo"><kbd>U</kbd></span> undo (practice) · <span id="keys-restart"><kbd>R</kbd></span> restart · <span id="keys-help"><kbd>H</kbd></span> help · menus work with <kbd>Tab</kbd> and <kbd>Enter</kbd>.</p></article>
-        <article class="rule-card"><h3>Gamepad</h3><p><kbd>A</kbd>/<kbd>Cross</kbd> flaps, <kbd>Start</kbd> pauses, shoulder buttons and D-pad navigate menus.</p></article>
+        <article class="rule-card"><h3>Scoring</h3><p data-i18n-html>Each gate: <strong>100</strong>. Near-center pass: up to <strong>+50</strong>. Consecutive centered passes build a streak worth up to <strong>+100</strong> per gate. Finish under par for a time bonus.</p></article>
+        <article class="rule-card"><h3>Keyboard</h3><p><span id="keys-pause"><kbd>Esc</kbd>/<kbd>P</kbd></span> <span>pause</span> · <span id="keys-undo"><kbd>U</kbd></span> <span>undo (practice)</span> · <span id="keys-restart"><kbd>R</kbd></span> <span>restart</span> · <span id="keys-help"><kbd>H</kbd></span> <span>help</span> · <span data-i18n-html>menus work with <kbd>Tab</kbd> and <kbd>Enter</kbd>.</span></p></article>
+        <article class="rule-card"><h3>Gamepad</h3><p data-i18n-html><kbd>A</kbd>/<kbd>Cross</kbd> flaps, <kbd>Start</kbd> pauses, shoulder buttons and D-pad navigate menus.</p></article>
         <article class="rule-card"><h3>Fair play</h3><p>Every round is seeded and replayable. Daily skies are identical for everyone on the same UTC day. Assists are declared with your score.</p></article>
       </div>
       <div class="row"><button id="btn-help-back" class="btn btn-ghost">Back</button></div>
@@ -269,6 +269,9 @@
 
   <div id="toast" class="toast" role="status" hidden></div>
 </main>
+<script src="sh-language.js"></script>
+<script src="js/strings.js"></script>
+<script src="js/i18n.js"></script>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
 </script>

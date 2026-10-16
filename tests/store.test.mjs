@@ -94,3 +94,13 @@ test('mergeSaves carries tutorialDone from either side', () => {
   assert.equal(mergeSaves(b, a).progress.tutorialDone, true);
   assert.equal(mergeSaves(a, defaultSave()).progress.tutorialDone, false);
 });
+
+test('mergeSaves keeps a stage cleared on either device and the better times and scores', () => {
+  const a = defaultSave(), b = defaultSave();
+  a.progress.journey['journey-01'] = { cleared: true, bestScore: 500, bestTicks: 900 };
+  b.progress.journey['journey-01'] = { cleared: false, bestScore: 700, bestTicks: 0 };
+  b.progress.journey['journey-02'] = { cleared: true, bestScore: 300, bestTicks: 800 };
+  const m = mergeSaves(a, b);
+  assert.deepEqual(m.progress.journey['journey-01'], { cleared: true, bestScore: 700, bestTicks: 900 });
+  assert.equal(m.progress.journey['journey-02'].cleared, true);
+});

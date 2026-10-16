@@ -16,9 +16,8 @@ const b64url = (s) => Buffer.from(s).toString('base64url');
 const jwt = (claims) => `${b64url('{"alg":"none"}')}.${b64url(JSON.stringify(claims))}.sig`;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 
-function boot({ hash = '' } = {}) {
+function boot({ hash = '', cloud = { bytes: null, etag: null, n: 0 } } = {}) {
   const calls = [];
-  const cloud = { bytes: null };
   const kv = { music: 0.2 };
   const ctx = {
     URL, URLSearchParams, TextEncoder, TextDecoder, atob, btoa, Blob, Response, console,
@@ -32,8 +31,18 @@ function boot({ hash = '' } = {}) {
     calls.push({ url, method, body: init.body ? JSON.parse(init.body) : undefined, auth: init.headers?.Authorization });
     const u = decodeURIComponent(url);
     if (u.endsWith(`/api/v1/users/${USER}/profile`)) return Response.json({ nickname: 'Thrower' });
+    if (u.endsWith(`/cloud-saves/game:${SLUG}/info`)) return Response.json(cloud.bytes ? { exists: true, etag: cloud.etag } : { exists: false });
     if (u.endsWith(`/cloud-saves/game:${SLUG}`)) {
-      if (method === 'PUT') { cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return new Response(null, { status: 204 }); }
+      if (method === 'PUT') {
+        // Conditional writes, as the platform does them: a stale If-Match loses.
+        const h = init.headers || {};
+        if ((h['If-Match'] && h['If-Match'] !== cloud.etag) || (h['If-None-Match'] === '*' && cloud.bytes)) {
+          return new Response(JSON.stringify({ etag: cloud.etag }), { status: 412, headers: { 'Content-Type': 'application/json' } });
+        }
+        cloud.bytes = Buffer.from(JSON.parse(init.body).dataBase64, 'base64');
+        cloud.etag = `"v${++cloud.n}"`;
+        return Response.json({ etag: cloud.etag });
+      }
       return cloud.bytes ? new Response(cloud.bytes) : new Response('', { status: 404 });
     }
     if (u.endsWith(`/games/${SLUG}/settings`)) {
@@ -127,4 +136,27 @@ test('account strings exist in every required locale', () => {
   for (const loc of Object.keys(GFX_STRINGS))
     for (const k of Object.keys(ACCOUNT_STRINGS['en-US'])) assert.ok(ACCOUNT_STRINGS[loc]?.[k], `${loc}.${k}`);
   assert.equal(Object.keys(ACCOUNT_STRINGS).length, 9);
+});
+
+test('save conflict: a write that loses to another device reloads the cloud copy for merging', async () => {
+  const token = jwt({ sub: USER, game_scope: SLUG, exp: Math.floor(Date.now() / 1000) + 3600 });
+  const cloud = { bytes: null, etag: null, n: 0 };
+  const a = boot({ hash: `#game_token=${token}`, cloud });
+  const b = boot({ hash: `#game_token=${token}`, cloud });
+  assert.equal(await a.P.loadProgress(), null);
+  assert.equal(await b.P.loadProgress(), null);
+  const fromB = { version: 1, progress: { totalRuns: 9 } };
+  const savedB = b.P.saveProgress(fromB);
+  await b.P._flushSave();
+  assert.deepEqual(plain(await savedB), { ok: true });
+  const merged = new Promise((resolve) => a.P.onConflict(resolve));
+  const savedA = a.P.saveProgress({ version: 1, progress: { totalRuns: 2 } });
+  await a.P._flushSave();
+  const r = plain(await savedA);
+  assert.equal(r.conflict, true);
+  assert.deepEqual(plain(await merged), fromB, 'the other device\'s save is handed over, not dropped');
+  assert.equal(a.SH.saveConflicted(), false, 'writes are allowed again after the reload');
+  const again = a.P.saveProgress({ version: 1, progress: { totalRuns: 9 } });
+  await a.P._flushSave();
+  assert.deepEqual(plain(await again), { ok: true });
 });

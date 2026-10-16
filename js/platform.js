@@ -27,14 +27,36 @@ export class Platform {
     this._timeSynced = false;
     this._saveWaiters = [];
     this._pushedSettings = null;
+    this._conflictListeners = [];
+    this._conflict = false;
     if (sh) {
+      // A write that lost to a newer save on another device: the SDK emits
+      // 'saveconflict' (then 'saved' false) and blocks writes until a reload.
+      sh.on('saveconflict', () => { this._conflict = true; });
       sh.on('saved', (ok) => {
-        this._setSync(ok ? 'synced' : 'offline');
         const waiters = this._saveWaiters;
         this._saveWaiters = [];
+        if (!ok && this._conflict) {
+          this._conflict = false;
+          this._setSync('saving');
+          this.sh.loadJSON().then((remote) => {
+            for (const w of waiters) w({ ok: false, conflict: true, remote });
+            if (this.sh.saveConflicted()) { this._setSync('offline'); return; }
+            for (const fn of this._conflictListeners) {
+              try { fn(remote); } catch { /* listener errors never break the adapter */ }
+            }
+          });
+          return;
+        }
+        this._setSync(ok ? 'synced' : 'offline');
         for (const w of waiters) w(ok ? { ok: true } : { ok: false, reason: 'network' });
       });
     }
+  }
+
+  /** fn(remoteDoc|null) after a save conflict: the newer cloud copy, reloaded (writes are allowed again). */
+  onConflict(fn) {
+    if (typeof fn === 'function') this._conflictListeners.push(fn);
   }
 
   /** A launch token is held (hosted mode). */
@@ -84,8 +106,9 @@ export class Platform {
   /* --------------------------- identity ----------------------------- */
 
   profileFor(userId) {
-    if (!userId || typeof userId !== 'string') return Promise.resolve('player');
-    const fallback = 'Player ' + userId.slice(0, 8);
+    const T = (k, v) => (typeof window !== 'undefined' && window.BWI18N ? window.BWI18N.T(k, v) : k.replace('{id}', v ? v.id : ''));
+    if (!userId || typeof userId !== 'string') return Promise.resolve(T('player'));
+    const fallback = T('Player {id}', { id: userId.slice(0, 8) });
     if (!this.hosted) return Promise.resolve(fallback);
     return this.sh.profile(userId).then((p) => (p && p.nickname) || fallback, () => fallback);
   }
@@ -214,7 +237,7 @@ export class Platform {
         const uid = e.userId ?? e.playerId ?? '';
         const name = await this.profileFor(uid);
         return {
-          name: uid && uid === this.userId ? `You (${name})` : name,
+          name: uid && uid === this.userId ? (typeof window !== 'undefined' && window.BWI18N ? window.BWI18N.T('You ({name})', { name }) : `You (${name})`) : name,
           score: e.score ?? e.value,
           you: uid === this.userId,
         };

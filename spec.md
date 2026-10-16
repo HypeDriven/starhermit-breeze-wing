@@ -29,12 +29,14 @@ points, but the middle of the gate is where streaks and scores are made.
 | `js/session.js` | `GameSession`: owns live rules state, command log, undo snapshots, replay envelope, safe snapshot |
 | `js/render.js` | Three.js scene: bird, gates, islands, clouds, sky dome, sea, particles, motes, ghost arc, camera; applies graphics settings live (shadows, sky-based IBL, post chain, pixel ratio, adaptive resolution) |
 | `js/gfx.js` | Pure graphics quality model: presets, categories, GPU detection, `resolve`, `presetTier`, `choosePreset`, `describe`, per-device storage |
-| `js/gfx-ui.js` | Settings → Graphics section: builds and localizes the controls (9 locales), persists and applies changes |
+| `js/gfx-ui.js` | Settings → Graphics section: builds and localizes the controls (9 locales, following the game language and rebuilt in place on a change), persists and applies changes; StarHermit account strings |
+| `sh-language.js` | Shared StarHermit language preference (`window.StarHermitLanguage`), verbatim copy of the canonical `tools/sh-language.js` |
+| `js/strings.js`, `js/i18n.js` | Translation tables for every other player-facing string (`window.BW_STRINGS`) and the localizer (`window.BWI18N`, `T()`): translates the static markup in place and drives the Language setting |
 | `vendor/addons/` | three.js r160 (0.160.1) post-processing passes and shaders: EffectComposer, RenderPass, ShaderPass, OutputPass, UnrealBloomPass, SMAAPass, FXAAShader and their imports; resolved through the `index.html` import map |
 | `js/audio.js` | WebAudio engine: four buses, authored Opus one-shots + loops with procedural fallbacks, captions, adaptive music |
 | `js/ui.js` | Screen switching, focus restore, live regions, HUD, setup/results/journey/achievements/board fills |
 | `starhermit-sdk.js` | Canonical StarHermit client (verbatim copy, `window.StarHermit`) |
-| `js/platform.js` | StarHermit adapter over the SDK: identity (nickname + avatar), cloud-save slot (debounced, sync status), settings KV, control bindings, sign-in, invite link, `high-score` leaderboard post (via `score-script.js`) and read |
+| `js/platform.js` | StarHermit adapter over the SDK: identity (nickname + avatar), cloud-save slot (debounced, sync status, save-conflict reload), settings KV, control bindings, sign-in, invite link, `high-score` leaderboard post (via `score-script.js`) and read |
 | `js/store.js` | Versioned, checksummed local save document; migration; conflict helpers |
 | `js/main.js` | `App`: state machine, fixed-step loop, input, lifecycle, progression, achievements, UI wiring |
 | `score-script.js` | StarHermit platform script (`server=score-script.js`): range-checks a finished ranked round's total and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`) |
@@ -42,8 +44,8 @@ points, but the middle of the gate is where streaks and scores are made.
 | `sfx/*.opus`, `sfx/manifest.txt` | 17 authored clips; canonical `file \| event \| description \| usage` manifest (`manifest.json` feeds the generator and the runtime map) |
 | `assets/title-emblem.webp`, `assets/results-horizon.webp` | Storybook illustrations used by the title and results panels |
 | `coverart.png`, `icon.png`, `favicon.svg` | Platform cover (16:9) and icons |
-| `tests/rules.test.mjs`, `tests/store.test.mjs`, `tests/server.test.mjs`, `tests/gfx.test.mjs` | `npm test` (node:test, no dependencies) |
-| `tests/e2e.mjs` | Real-UI playthrough in headless Chrome via `playwright-core` (`npm run test:e2e`) |
+| `tests/rules.test.mjs`, `tests/store.test.mjs`, `tests/server.test.mjs`, `tests/gfx.test.mjs`, `tests/platform.test.mjs`, `tests/i18n.test.mjs` (+ `tests/i18n-common.mjs`) | `npm test` (node:test, no dependencies) |
+| `tests/e2e.mjs`, `tests/starhermit-e2e.mjs` | Real-UI playthrough in headless Chrome via `playwright-core` (`npm run test:e2e`) and its stubbed StarHermit API |
 | `knownissues.md`, `LICENSE.md` | QA history; PolyForm Noncommercial 1.0.0 |
 
 ## 2. Vision and design pillars
@@ -81,7 +83,7 @@ prompt on screen ("Press Space, click, or tap to flap. Flap once to take off!") 
 also toasted for 5 s and announced to screen readers → three flaps clear the lesson → results with
 the score breakdown and **Next lesson →**. Lessons 2–5 each add one rule (hover between the
 bounds, pass a gate, aim for the centre, read a moving gate). Touch devices additionally show the
-pulsing "Tap anywhere to flap" pill, which is itself a flap target and disappears on the first flap.
+pulsing "Tap anywhere to flap" pill, which is itself a flap target and disappears on the first flap or when the round pauses.
 Help (title, pause, or `H`) shows six rule cards including the full scoring table.
 
 **Session shape.** Title → (Journey stage or Daily) → 20–90 s flight → results (breakdown, unlocks,
@@ -348,19 +350,42 @@ decoding, the procedural synth for that event plays instead, so the game is neve
 
 ## 10. Localization
 
-The shipped build is **English only** except the Settings → Graphics section: its labels,
-preset/tier names, notes and cost summary come from `GFX_STRINGS` in `js/gfx-ui.js` for en-US,
-en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR and it-IT, chosen from `navigator.language`
-(`pickLocale`: other Spanish regions → es-419, other French → fr-FR, other Portuguese → pt-BR,
-Commonwealth English → en-GB, anything else → en-US). Everything else is an English literal in `index.html` (screen
-copy, rule cards, settings labels), `js/main.js` (`INVALID_TEXT`, result reasons, toasts, blurbs),
-`js/ui.js` (HUD/setup/board sentences) and `js/content.js` (stage, lesson, challenge and
-achievement names). `<html lang="en">` is fixed; there is no language selector and no locale
-detection. The product target list — en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR,
-it-IT — is recorded under "Design intent not yet implemented". Layout allowances already in place
-for a future string table: panels wrap at 70 ch, buttons are min-width 44 px with wrapping rows,
-and the setup facts grid and results table are two-column so 30 % longer labels fit without
-truncation.
+Nine locales ship: **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT**.
+
+- **Strings.** Markup, code and content are authored in English and the English text is the
+  lookup key. `js/strings.js` holds one row per key with es-419, de-DE, fr-FR, pt-BR and it-IT;
+  en-GB, es-ES and fr-CA list only their differences (centre/colour, Pulsa/Intro/mando,
+  pointage). `T(key, vars)` (`js/i18n.js`) falls back regional → parent → English and fills
+  `{name}` placeholders. Static markup in `index.html` is translated in place — every text node and
+  `aria-label`/`title`/`alt` under `<body>`, and the inner HTML of rich-text elements marked
+  `data-i18n-html` (help cards with `<kbd>`/`<strong>`); the logo (`data-i18n-skip`) and key caps
+  stay. Code-built text goes through `T()`: HUD, setup facts and blurbs, journey grid labels,
+  results (headline, reason, extras, next label, board note), achievements, leaderboards, away
+  summary, toasts and live-region announcements. Content names are translated at display time
+  (journey stages as "{sky} {n}" / "Mastery: {sky}", "Daily Breeze — {date}"). Graphics and account
+  strings come from `js/gfx-ui.js` for the same locale. "Breeze Wing" and "StarHermit" are names
+  and are not translated; numbers stay locale-independent.
+- **Language setting.** Settings → **Language → Game language** (rendered by `game-options.js`
+  inside the Graphics fieldset, so it is reachable from the title and from pause) offers
+  **Automatic — <resolved language>** plus the nine locales by native name, with a status line
+  (Saved to account / Saved on this device / Account sync unavailable). It is the only selector.
+- **Resolution** (`sh-language.js`): explicit game choice → for Automatic, the StarHermit account's
+  `preferredLanguage` (`GET /api/v1/me/language`, signed in only) → `navigator.languages` → en-US,
+  each mapped to the nearest shipped locale (`es-MX → es-419`, `en-AU → en-GB`, `fr → fr-FR`,
+  `pt-PT → pt-BR`). The choice (`auto` or a locale) is stored per player in
+  `localStorage['breeze-wing.language.<user|guest>']` and, when signed in, in the per-player
+  settings key `ui.language` as `{ choice }`; a failed settings read never overwrites it and the
+  game never writes the platform preference. `?lang=<tag>` forces a locale for the page load (QA
+  links) and hides the selector.
+- **Live switching.** A change sets `document.documentElement.lang`, re-applies the static markup
+  and fires `bw-language`; `App._onLanguage` re-renders the Graphics panel in place (the shared
+  sections in the fieldset keep focus), account buttons, key caps, profile chip, journey grid,
+  daily line, the open setup/results/board/away screen, the countdown prompt, the HUD and a visible
+  toast. The round in play, its tick and the session are untouched.
+- `tests/i18n.test.mjs` collects every key from the markup, the code (`T()`, and `N()` for keys
+  translated later) and the content, and fails when a locale lacks one or a translation drops a
+  placeholder or markup tag. Layout tolerates ~30 % longer strings: panels wrap at 70 ch, buttons
+  wrap, and the setup facts grid and results table are two-column.
 
 ## 11. Accessibility
 
@@ -403,7 +428,9 @@ calls and runs as an offline guest with local saves.
 | Identity / profile | Yes | `GET /api/v1/users/{sub}/profile` → nickname (never `/api/v1/me`, never usernames; `Player <id8>` fallback) and `/avatar`; shown in the profile chip (avatar + name) with cloud-sync status (offline/saving/synced) |
 | Server time | Yes | `GET /api/v1/time`, round-trip-adjusted offset; drives the daily key and "done today" |
 | Presence / activity / telemetry | No | No per-game endpoints exist for launch tokens (wiki); the client deliberately never calls them |
-| Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/game:{slug}` (via the SDK); remote wins on boot (strict-descendant auto-resolve or Conflict screen, which stays up and holds cloud pushes until the player chooses), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache |
+| Cloud save | Yes | One zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/game:{slug}` (via the SDK); remote wins on boot (strict-descendant auto-resolve or Conflict screen, which stays up and holds cloud pushes until the player chooses), saves debounce 2 s and flush on `pagehide`/hidden; localStorage stays the offline cache. Writes after a load are conditional: when another device saved first the SDK refuses the write (`saveconflict`), `Platform` reloads the cloud copy and `App._mergeCloud` merges it with `mergeSaves` — every lesson, achievement and played day from both sides, a Journey stage cleared on either device stays cleared with the higher best score and the faster best time, the higher best per mode, the larger totals, both local boards — keeps this device's settings and the round in play, and saves the merge again |
+| Language | Yes | Automatic follows `GET /api/v1/me/language`; the explicit choice syncs to the settings key `ui.language` (§10) |
+| Reports | Yes | Settings → **Report a problem** (signed in only, from `game-options.js`) files a bug report through `StarHermit.reportBug` with a small non-personal `context.json` (language, viewport, FPS cap, audio limit); uncaught errors are filed as crash reports through `StarHermit.captureCrashes` (at most one per message and three per page load) |
 | Leaderboards | Yes | One board, `high-score` (integer, higher is better, 0–1,000,000). When signed in, every finished Daily Breeze or Score Chase round posts its total through `StarHermit.submitScores` (a practice session whose `score-script.js` posts it), and the results screen shows "Leaderboard rank: #N" (or posted / not posted; localized in the nine locales via `ACCOUNT_STRINGS`). Standalone play posts nothing and shows no line. The Leaderboards screen reads `high-score` via `GET /api/v1/games/{slug}/leaderboards` → `GET /api/v1/leaderboards/{id}/entries[?scope=friends]` with user ids resolved to nicknames (own row "You"). The dev server's replay-validated `POST/GET /api/v1/scores` remains for direct local testing only |
 | Achievements | Local | Unlocked and stored in the save document (part of the cloud-saved doc); no platform unlock endpoint is called |
 | Game script | Yes | `score-script.js` is the platform script (range-checks and posts scores). The local dev `server.js` rebuilds the immutable content for `daily-*` / `chase-*`, rejects stale `contentVersion`, seed or board mismatches, replays the envelope through `js/rules.js`, labels entries `validated` or casual (plausibility-checked), keeps 200 per board, rate-limits 120 req/min per identity, 256 KB bodies, atomic table writes |
@@ -497,12 +524,18 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   visible UI (Low → Ultra → High, Bloom override Off, checks `data-gfx-preset`, the resolved tier,
   the summary text and that the panel fits the viewport, reloads to confirm persistence, then
   returns to Auto, which must clear overrides and resolve to Low on the software GPU); mobile also
-  opens Settings from pause mid-round and toggles the frame-rate readout. Any page error or
+  opens Settings from pause mid-round and toggles the frame-rate readout. Both passes end signed in
+  against a stubbed StarHermit API (`tests/starhermit-e2e.mjs`) whose account prefers fr-CA: the
+  title reads Canadian French, a journey stage starts and is paused, Settings shows "Automatique —
+  Français (Canada)", choosing Italiano re-renders Settings and the Graphics legend, PUTs
+  `ui.language` and shows "Salvato nell’account", Report a problem posts a bug report, no Settings
+  control spills past the viewport, the pause screen and HUD read Italian with the round's tick
+  unchanged, the results screen is Italian, and Automatic is restored. Any page error or
   non-benign console error or warning fails it.
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (66 tests, `node --test tests/*.test.mjs`): StarHermit adapter (`tests/platform.test.mjs`: SDK in a sandbox with a stubbed `fetch` — no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; control overrides; leaderboard read; sign-out on refused renewal; account strings in all nine locales); graphics model (`detectPreset` on sample
+`npm test` (70 tests, `node --test tests/*.test.mjs`): localization (`tests/i18n.test.mjs`: every key from markup, code and content translated in every locale with its placeholders and markup; the locale follows `sh-language.js` and switches live); StarHermit adapter (`tests/platform.test.mjs`: SDK in a sandbox with a stubbed `fetch` that enforces conditional writes — no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; a write that loses to another device reloads the newer save for merging and unblocks writes; control overrides; leaderboard read; sign-out on refused renewal; account strings in all nine locales); graphics model (`detectPreset` on sample
 GPU strings incl. the touch cap, `resolve` with auto/preset/override/invalid tier, render-scale
 clamp, `choosePreset` clearing overrides, every preset row valid, `describe` incl. a localized
 summary, per-device storage and legacy seeding, every locale has every panel string); RNG determinism and `hashString`; legal
@@ -514,7 +547,7 @@ practice undo (state and envelope); fuzzed commands never hang or NaN; generated
 seeds stays valid; golden stage-1 and interrupted/resumed sessions; all shipped content passes the
 validators; 40 stages / 5 lessons / 5 themes; daily immutability and a year sweep; config
 normalisation; oscillation bounds; gap-shrink floor. Store: fresh/round-trip/corrupt/unreadable
-saves, migration, descendant and merge semantics. Server: concurrent first submissions, time
+saves, migration, descendant and merge semantics (a stage cleared on either device stays cleared). Server: concurrent first submissions, time
 endpoint, static allow/deny list, validated ranking, tampered replay → 422, stale version and seed
 mismatch → 400, casual plausibility, save round-trip and credential rejection, friends filter.
 
@@ -551,20 +584,18 @@ board; `node --check` passes on every JS/MJS file.
 - Challenge "Perfect Line" declares `goalExtra {centeredPasses: 5}` but the rules ignore it: the
   challenge clears after 8 gates regardless of centred passes.
 - Journey stages are never locked; the `.jstage.locked` style is unused.
-- Hosted paths (cloud save, save conflict, platform leaderboard, friends filter) are exercised only by ad-hoc
-  harnesses; no host shell is available locally, and the e2e plays as an offline guest (zero `/api` calls).
+- Hosted paths (cloud save, save conflict, platform leaderboard, friends filter) are exercised by unit
+  harnesses; the e2e's signed-in step covers only language, settings sync and reports.
 - The audio caption pill (bottom-anchored) can overlap the results buttons for about a second on
   portrait phones when an achievement cue fires as the results sheet opens.
-- English only (see §10). Audio output is untested in headless Chrome.
+- Audio output is untested in headless Chrome.
 
 ### Design intent not yet implemented
 
-1. String table and locale selection for en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR,
-   it-IT (host locale first, then `navigator.language`, then English).
-2. A separate casual board, or a "verified only" filter, on the Leaderboards screen, plus a
+1. A separate casual board, or a "verified only" filter, on the Leaderboards screen, plus a
    Score Chase board tab.
-3. A seed field on the Score Chase setup so shared seeds can actually be entered.
-4. Enforce `goalExtra.centeredPasses` for Perfect Line in the rules (terminal `cleared` only when
+2. A seed field on the Score Chase setup so shared seeds can actually be entered.
+3. Enforce `goalExtra.centeredPasses` for Perfect Line in the rules (terminal `cleared` only when
    both conditions hold).
 
 ## Browser interference

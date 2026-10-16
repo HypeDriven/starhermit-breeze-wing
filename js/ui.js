@@ -10,6 +10,22 @@ import { TICKS_PER_SECOND } from './rules.js';
 
 const $ = (id) => document.getElementById(id);
 
+/** Localized text (js/i18n.js); English source strings are the keys. */
+export const T = (key, vars) => (typeof window !== 'undefined' && window.BWI18N ? window.BWI18N.T(key, vars) : key);
+
+/** Display name of a content config (content is authored in English). */
+export function cfgName(cfg) {
+  if (!cfg) return '';
+  if (cfg.mode === 'daily' && cfg.dateKey) return T('Daily Breeze — {date}', { date: cfg.dateKey });
+  if (cfg.mode === 'journey') {
+    const m = /^Mastery: (.+)$/.exec(cfg.name);
+    if (m) return T('Mastery: {sky}', { sky: T(m[1]) });
+    const n = /^(.+) (\d+)$/.exec(cfg.name);
+    if (n) return T('{sky} {n}', { sky: T(n[1]), n: n[2] });
+  }
+  return T(cfg.name);
+}
+
 const SCREENS = [
   'screen-title', 'screen-setup', 'screen-journey', 'screen-countdown',
   'screen-pause', 'screen-results', 'screen-help', 'screen-settings',
@@ -88,13 +104,21 @@ export class UI {
     this.el.audioCaptions.classList.remove('show');
   }
 
+  /** text may be a function so a visible toast follows a language change. */
   toast(text, ms = 2400) {
     const t = this.el.toast;
-    t.textContent = text;
+    this._toastText = text;
+    const str = typeof text === 'function' ? text() : text;
+    t.textContent = str;
     t.hidden = false;
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { t.hidden = true; }, ms);
-    this.announce(text);
+    this.announce(str);
+  }
+
+  /** Re-render a visible toast in the current language. */
+  relocalizeToast() {
+    if (!this.el.toast.hidden && typeof this._toastText === 'function') this.el.toast.textContent = this._toastText();
   }
 
   /* ------------------------------ HUD ------------------------------- */
@@ -105,11 +129,11 @@ export class UI {
     if (score !== undefined) this.el.hudScore.textContent = String(score);
     if (streak !== undefined) {
       this.el.hudStreak.hidden = !streak || streak < 2;
-      this.el.hudStreak.textContent = streak >= 2 ? `✦ streak ×${streak}` : '';
+      this.el.hudStreak.textContent = streak >= 2 ? T('✦ streak ×{n}', { n: streak }) : '';
     }
     if (moves !== undefined) {
       this.el.hudMoves.hidden = moves === null;
-      this.el.hudMoves.textContent = moves === null ? '' : `Flaps left: ${moves}`;
+      this.el.hudMoves.textContent = moves === null ? '' : T('Flaps left: {n}', { n: moves });
     }
     if (timeLeft !== undefined) {
       this.el.hudTime.hidden = timeLeft === null;
@@ -126,22 +150,22 @@ export class UI {
   /* --------------------------- setup fill --------------------------- */
 
   fillSetup(cfg, blurb) {
-    this.el.setupHeading.textContent = cfg.name;
+    this.el.setupHeading.textContent = cfgName(cfg);
     this.el.setupBlurb.textContent = blurb || '';
     const p = cfg.params;
     const bits = [];
-    if (cfg.goal.type === 'gates') bits.push(`pass ${cfg.goal.value} gates`);
-    if (cfg.goal.type === 'survive') bits.push(`survive ${Math.round(cfg.goal.value / TICKS_PER_SECOND)}s`);
-    if (cfg.goal.type === 'flaps') bits.push(`flap ${cfg.goal.value} times`);
-    if (cfg.goal.type === 'endless') bits.push('endless flight — best score wins');
-    if (p.moveLimit > 0) bits.push(`only ${p.moveLimit} flaps allowed`);
-    if (p.oscAmp > 0) bits.push('moving gates');
-    this.el.setupRules.textContent = bits.join(' · ') || 'free flight';
+    if (cfg.goal.type === 'gates') bits.push(T('pass {n} gates', { n: cfg.goal.value }));
+    if (cfg.goal.type === 'survive') bits.push(T('survive {n}s', { n: Math.round(cfg.goal.value / TICKS_PER_SECOND) }));
+    if (cfg.goal.type === 'flaps') bits.push(T('flap {n} times', { n: cfg.goal.value }));
+    if (cfg.goal.type === 'endless') bits.push(T('endless flight — best score wins'));
+    if (p.moveLimit > 0) bits.push(T('only {n} flaps allowed', { n: p.moveLimit }));
+    if (p.oscAmp > 0) bits.push(T('moving gates'));
+    this.el.setupRules.textContent = bits.join(' · ') || T('free flight');
     const expected = cfg.parTicks > 0 ? cfg.parTicks / TICKS_PER_SECOND
       : cfg.goal.type === 'survive' ? cfg.goal.value / TICKS_PER_SECOND
       : cfg.goal.type === 'gates' ? (p.spacing * (cfg.goal.value + 2)) / Math.max(1, p.speed) : 0;
-    this.el.setupDuration.textContent = expected > 0 ? `about ${Math.max(1, Math.round(expected / 10) * 10)}s` : 'as long as you last';
-    this.el.setupRanked.textContent = cfg.ranked ? 'Yes — shared seed, replay-verified' : 'No — local only';
+    this.el.setupDuration.textContent = expected > 0 ? T('about {n}s', { n: Math.max(1, Math.round(expected / 10) * 10) }) : T('as long as you last');
+    this.el.setupRanked.textContent = cfg.ranked ? T('Yes — shared seed, replay-verified') : T('No — local only');
   }
 
   /** Options list for setup (e.g. practice difficulty, chase seed). */
@@ -179,26 +203,27 @@ export class UI {
       const label = st.mastery ? `★` : String(i + 1);
       b.innerHTML = `<span></span><small></small>`;
       b.querySelector('span').textContent = label;
-      b.querySelector('small').textContent = cleared ? `${rec.bestScore}` : st.name.replace('Mastery: ', '').split(' ')[0];
-      b.setAttribute('aria-label', `Stage ${i + 1}: ${st.name}${cleared ? `, cleared, best ${rec.bestScore}` : ''}${st.mastery ? ', mastery trial' : ''}`);
+      b.querySelector('small').textContent = cleared ? `${rec.bestScore}` : T(st.name.replace('Mastery: ', '').replace(/ \d+$/, '')).split(' ')[0];
+      b.setAttribute('aria-label', T('Stage {n}: {name}', { n: i + 1, name: cfgName(st) }) +
+        (cleared ? T(', cleared, best {score}', { score: rec.bestScore }) : '') + (st.mastery ? T(', mastery trial') : ''));
       b.addEventListener('click', () => onPick(i));
       grid.appendChild(b);
     });
     if (firstUncleared >= 0) grid.children[firstUncleared].classList.add('current');
-    this.el.journeySub.textContent = `${clearedCount} / ${JOURNEY.length} stages`;
+    this.el.journeySub.textContent = T('{n} / {total} stages', { n: clearedCount, total: JOURNEY.length });
     return clearedCount;
   }
 
   /* ---------------------------- results ----------------------------- */
 
   fillResults(state, { won, blurb, extra, boardNote, nextLabel }) {
-    this.el.resultsHeading.textContent = won ? 'Clear skies!' : 'Flight ended';
+    this.el.resultsHeading.textContent = won ? T('Clear skies!') : T('Flight ended');
     this.el.resultsSub.textContent = blurb || '';
     this.el.bdGates.textContent = String(state.gatesPassed);
     this.el.bdGatesPts.textContent = String(state.score.gates);
     this.el.bdCenter.textContent = String(state.centeredPasses);
     this.el.bdCenterPts.textContent = String(state.score.center);
-    this.el.bdStreak.textContent = `best ×${state.bestStreak}`;
+    this.el.bdStreak.textContent = T('best ×{n}', { n: state.bestStreak });
     this.el.bdStreakPts.textContent = String(state.score.streak);
     this.el.bdTimePts.textContent = String(state.score.time);
     this.el.bdTotal.textContent = String(state.score.total);
@@ -212,7 +237,7 @@ export class UI {
     const box = this.el.resultsAchievements;
     if (!list.length) { box.hidden = true; return; }
     box.hidden = false;
-    box.textContent = `🏅 Unlocked: ${list.map((a) => a.name).join(' · ')}`;
+    box.textContent = '🏅 ' + T('Unlocked: {list}', { list: list.map((a) => T(a.name)).join(' · ') });
   }
 
   /* ------------------------- achievements --------------------------- */
@@ -226,15 +251,15 @@ export class UI {
       li.className = at ? 'unlocked' : '';
       const name = document.createElement('div');
       name.className = 'ach-name';
-      name.textContent = `${at ? '🏅' : '○'} ${a.name}`;
+      name.textContent = `${at ? '🏅' : '○'} ${T(a.name)}`;
       const desc = document.createElement('div');
       desc.className = 'ach-desc';
-      desc.textContent = a.desc;
+      desc.textContent = T(a.desc);
       li.append(name, desc);
       if (at) {
         const d = document.createElement('div');
         d.className = 'ach-date';
-        d.textContent = `Unlocked ${String(at).slice(0, 10)}`;
+        d.textContent = T('Unlocked {date}', { date: String(at).slice(0, 10) });
         li.append(d);
       }
       ul.appendChild(li);
@@ -249,7 +274,7 @@ export class UI {
     ol.innerHTML = '';
     if (!entries || !entries.length) {
       const li = document.createElement('li');
-      li.textContent = 'No scores yet — be the first breeze.';
+      li.textContent = T('No scores yet — be the first breeze.');
       ol.appendChild(li);
       return;
     }
@@ -257,7 +282,7 @@ export class UI {
       const li = document.createElement('li');
       if (e.you) li.className = 'you';
       const who = document.createElement('span');
-      who.textContent = `${i + 1}. ${e.name || 'Pilot'}`;
+      who.textContent = `${i + 1}. ${e.name || T('Pilot')}`;
       const score = document.createElement('strong');
       score.textContent = String(e.score);
       li.append(who, score);
@@ -299,12 +324,12 @@ export class UI {
 
   setProfileChip(profile, hosted, sync) {
     if (profile.guest) {
-      this.el.profileChip.textContent = 'Guest — progress saves locally';
+      this.el.profileChip.textContent = T('Guest — progress saves locally');
       return;
     }
-    const syncTxt = sync === 'synced' ? 'cloud save synced'
-      : sync === 'saving' ? 'saving…'
-      : 'cloud save offline';
-    this.el.profileChip.textContent = `${profile.name} — ${syncTxt}${hosted ? '' : ' (offline)'}`;
+    const syncTxt = sync === 'synced' ? T('cloud save synced')
+      : sync === 'saving' ? T('saving…')
+      : T('cloud save offline');
+    this.el.profileChip.textContent = `${profile.name} — ${syncTxt}${hosted ? '' : ' ' + T('(offline)')}`;
   }
 }
