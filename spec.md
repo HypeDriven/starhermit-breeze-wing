@@ -484,14 +484,18 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   inside the panel on phones): Quality `#gfx-preset` (Auto (detected: <tier>) / Low / Balanced /
   High / Ultra); Render scale `#gfx-scale` 50–200 %; one select per category `#gfx-<category>`
   defaulting to "From preset (<tier>)"; Adaptive resolution `#gfx-adaptive` (default on); Show
-  frame rate `#gfx-fps` (default off); summary `#gfx-summary` "GPU · cost summary · W×H px";
+  frame rate `#gfx-fps` (default off); summary `#gfx-summary` "GPU · Level N · cost summary · W×H px" ("Level" localized in all nine locales);
   `#gfx-post-note` when post-processing is unavailable. Choosing a preset clears overrides. Every
   change applies immediately (no reload) and is saved per device in localStorage
   `breezewing.graphics.v1` (not in the cloud-saved document); a legacy `graphicsTier` of low/high
   seeds the preset once. The canvas carries `data-gfx-preset`, `data-gfx-auto`, `data-gfx-post`;
-  `body` carries `data-gfx-preset`. Auto uses `detectPreset` on the unmasked WebGL renderer
-  string (Firefox: `RENDERER`): SwiftShader/llvmpipe/software → Low, NVIDIA/GeForce/RTX/GTX/Radeon
-  RX/Pro/Apple M → High, else Balanced; touch-first devices cap Auto at Balanced.
+  `body` carries `data-gfx-preset`. Auto uses the StarHermit hardware level: `js/gpu-level.js`
+  (shared copy, `window.StarHermitGpu`, loaded before `main.js`) rates the unmasked WebGL renderer
+  (Firefox: `RENDERER`) plus `detectSystem()` facts on 0–20 (0 = Galaxy S20 / Intel UHD or weaker and
+  every software renderer, 20 = RTX 5090, each level ≈ 1.23×; laptop parts two levels below desktop;
+  phones, tablets and ≤ 4 GB machines capped at 9), and `gfx.js` maps it with
+  `presetForLevel(level, { low: 0, balanced: 4, high: 10, ultra: 17 })` — Auto picks Ultra on strong
+  GPUs; adaptive resolution still steps down when slow. Headless SwiftShader → level 0 → Low.
 
   | Category | Tiers | Low | Balanced | High | Ultra |
   |---|---|---|---|---|---|
@@ -505,6 +509,32 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   | `scenery` (islands / clouds) | sparse 6/6, normal 10/10, rich 14/16 | sparse | normal | rich | rich |
   | `detail` (surface materials, smoother meshes) | plain / detailed | plain | detailed | detailed | detailed |
   | `particles` (pool, motes) | low 120/0, high 900/45 | low | low | high | high |
+
+  **Per-preset budgets** (`BUDGETS` / `budgetFor` in `js/gfx.js`): each preset holds 60 FPS on the
+  weakest GPU Auto gives it (Low at level 0, Balanced 4, High 10, Ultra 17). Counts are tuned at the
+  floor level and scale up within the preset on faster GPUs (`StarHermitGpu.scaleBudget`, ≤ 4×, never
+  below the floor). Changing preset rebuilds the affected meshes, scenery and pools live.
+
+  | Budget | Low | Balanced | High | Ultra |
+  |---|---|---|---|---|
+  | Materials (bird, gates, islands, clouds) | Lambert | PBR Standard / Physical | PBR | PBR |
+  | Cloud-puff subdivision (detailed surfaces) | 1 | 2 | 3 | 3 |
+  | Scenery count × tier counts · extra grass tufts | ×1 · 0 | ×1 · 0 | ×1.25 · +1 | ×1.6 · +2 |
+  | Particle pool × tier pool · ambient motes | ×1 · 0 | ×1 · 20 (Particles: high) | ×1 · 45 | ×1.5 · 80 |
+
+  Phones and tablets pace Auto FPS at half the display refresh rate ("Auto (half refresh rate)") and
+  start at 16 simultaneous sounds (shared `game-options.js`).
+
+  **Benchmark** (`node tools/gfx-bench.mjs breeze-wing`; hook `tests/gfx-bench.mjs` picks the preset
+  in Settings and flies today's Daily with real Space presses / taps, retrying after a fall). Measured
+  2026-10-17 (AMD Radeon iGPU level 2 GPU time projected to the preset's floor level; RTX 5090 CPU time):
+  - Desktop 1920×1080: FAIL low (GPU p90 10.86 ms → ≈ 16.43 ms at level 0, CPU 1.60 ms); PASS balanced
+    (15.75 → ≈ 10.41 ms at level 4, CPU 2.70 ms); PASS high (21.49 → ≈ 4.10 ms at level 10, CPU 3.00 ms);
+    PASS ultra (36.98 → ≈ 1.66 ms at level 17, CPU 2.70 ms).
+  - Mobile 390×844 @3×: FAIL low (17.04 → ≈ 25.79 ms, CPU 1.00 ms); PASS balanced (14.70 → ≈ 9.71 ms,
+    CPU 1.40 ms).
+  - Low is at the benchmark's floor on this machine: a blank page that only clears a full-window WebGL
+    canvas measured 11.34 ms p90 (≈ 17 ms at level 0) in the same session.
 
   Low renders straight to the canvas with no extra passes, no shadows and no canvas MSAA — no more
   work than the previous Low tier. Graphics never change rules, hitboxes or hazard visibility.
@@ -535,8 +565,8 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (70 tests, `node --test tests/*.test.mjs`): localization (`tests/i18n.test.mjs`: every key from markup, code and content translated in every locale with its placeholders and markup; the locale follows `sh-language.js` and switches live); StarHermit adapter (`tests/platform.test.mjs`: SDK in a sandbox with a stubbed `fetch` that enforces conditional writes — no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; a write that loses to another device reloads the newer save for merging and unblocks writes; control overrides; leaderboard read; sign-out on refused renewal; account strings in all nine locales); graphics model (`detectPreset` on sample
-GPU strings incl. the touch cap, `resolve` with auto/preset/override/invalid tier, render-scale
+`npm test` (70 tests, `node --test tests/*.test.mjs`): localization (`tests/i18n.test.mjs`: every key from markup, code and content translated in every locale with its placeholders and markup; the locale follows `sh-language.js` and switches live); StarHermit adapter (`tests/platform.test.mjs`: SDK in a sandbox with a stubbed `fetch` that enforces conditional writes — no requests standalone; token read and fragment stripped; nickname; settings patch of changed keys; cloud-save round trip through `game:<slug>`; a write that loses to another device reloads the newer save for merging and unblocks writes; control overrides; leaderboard read; sign-out on refused renewal; account strings in all nine locales); graphics model (hardware level → preset on sample
+GPU strings — SwiftShader/Radeon Graphics/UHD → Low, Iris Xe → Balanced, GTX 1070 → High, RTX 4080/5090 → Ultra — incl. the phone cap, the per-preset budget table and its level scaling, `resolve` with auto/preset/override/invalid tier, render-scale
 clamp, `choosePreset` clearing overrides, every preset row valid, `describe` incl. a localized
 summary, per-device storage and legacy seeding, every locale has every panel string); RNG determinism and `hashString`; legal
 actions and every invalid reason; malformed/unknown/duplicate commands; gravity and lift;

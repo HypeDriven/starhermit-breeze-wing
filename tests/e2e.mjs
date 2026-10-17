@@ -133,6 +133,7 @@ async function graphicsFlow(page, vp, openSettings, closeSettings) {
   await page.selectOption('#gfx-bloom', 'off');
   await page.waitForTimeout(300);
   st = await gfxState();
+  if (!/ · Level 0 · /.test(st.summary)) throw new Error(`summary lacks the hardware level: ${st.summary}`);
   if (st.canvas !== 'high' || st.resolvedBloom !== 'off' || /bloom/.test(st.summary)) {
     throw new Error(`override not applied: ${JSON.stringify(st)}`);
   }

@@ -9,7 +9,7 @@ import { PRESETS, CATEGORIES, presetTier, choosePreset, loadGraphics, saveGraphi
 /* ------------------------------ strings ------------------------------ */
 
 const EN_US = {
-  graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', renderScale: 'Render scale',
+  level: 'Level {n}', graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', renderScale: 'Render scale',
   fromPreset: 'From preset ({tier})', adaptive: 'Adaptive resolution', showFps: 'Show frame rate',
   postFailed: 'Post-processing is unavailable on this device, so effects render without it.',
   presets: { low: 'Low', balanced: 'Balanced', high: 'High', ultra: 'Ultra' },
@@ -25,7 +25,7 @@ const EN_GB = {
 };
 
 const ES_419 = {
-  graphics: 'Gráficos', quality: 'Calidad', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderizado',
+  level: 'Nivel {n}', graphics: 'Gráficos', quality: 'Calidad', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderizado',
   fromPreset: 'Según el ajuste ({tier})', adaptive: 'Resolución adaptable', showFps: 'Mostrar cuadros por segundo',
   postFailed: 'El posprocesamiento no está disponible en este dispositivo; los efectos se muestran sin él.',
   presets: { low: 'Baja', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra' },
@@ -41,7 +41,7 @@ const ES_ES = {
 };
 
 const DE_DE = {
-  graphics: 'Grafik', quality: 'Qualität', auto: 'Automatisch (erkannt: {tier})', renderScale: 'Renderskalierung',
+  level: 'Stufe {n}', graphics: 'Grafik', quality: 'Qualität', auto: 'Automatisch (erkannt: {tier})', renderScale: 'Renderskalierung',
   fromPreset: 'Wie Voreinstellung ({tier})', adaptive: 'Adaptive Auflösung', showFps: 'Bildrate anzeigen',
   postFailed: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; Effekte werden ohne sie dargestellt.',
   presets: { low: 'Niedrig', balanced: 'Ausgewogen', high: 'Hoch', ultra: 'Ultra' },
@@ -51,7 +51,7 @@ const DE_DE = {
 };
 
 const FR_FR = {
-  graphics: 'Graphismes', quality: 'Qualité', auto: 'Auto (détectée : {tier})', renderScale: 'Échelle de rendu',
+  level: 'Niveau {n}', graphics: 'Graphismes', quality: 'Qualité', auto: 'Auto (détectée : {tier})', renderScale: 'Échelle de rendu',
   fromPreset: 'Selon le préréglage ({tier})', adaptive: 'Résolution adaptative', showFps: 'Afficher les images par seconde',
   postFailed: 'Le post-traitement est indisponible sur cet appareil ; les effets sont rendus sans lui.',
   presets: { low: 'Basse', balanced: 'Équilibrée', high: 'Haute', ultra: 'Ultra' },
@@ -68,7 +68,7 @@ const FR_CA = {
 };
 
 const PT_BR = {
-  graphics: 'Gráficos', quality: 'Qualidade', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderização',
+  level: 'Nível {n}', graphics: 'Gráficos', quality: 'Qualidade', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderização',
   fromPreset: 'Conforme a predefinição ({tier})', adaptive: 'Resolução adaptável', showFps: 'Mostrar taxa de quadros',
   postFailed: 'O pós-processamento não está disponível neste dispositivo; os efeitos são exibidos sem ele.',
   presets: { low: 'Baixa', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra' },
@@ -78,7 +78,7 @@ const PT_BR = {
 };
 
 const IT_IT = {
-  graphics: 'Grafica', quality: 'Qualità', auto: 'Automatica (rilevata: {tier})', renderScale: 'Scala di rendering',
+  level: 'Livello {n}', graphics: 'Grafica', quality: 'Qualità', auto: 'Automatica (rilevata: {tier})', renderScale: 'Scala di rendering',
   fromPreset: 'Da preimpostazione ({tier})', adaptive: 'Risoluzione adattiva', showFps: 'Mostra frequenza fotogrammi',
   postFailed: 'La post-elaborazione non è disponibile su questo dispositivo; gli effetti vengono resi senza.',
   presets: { low: 'Bassa', balanced: 'Bilanciata', high: 'Alta', ultra: 'Ultra' },
@@ -418,7 +418,7 @@ export class GraphicsPanel {
   refreshInfo() {
     const info = this.renderer.graphicsInfo(this.s.summary);
     const fps = info.resolved.showFps && info.fps ? ` · ${info.fps} fps` : '';
-    this.summary.textContent = `${info.gpu} · ${info.summary}${fps}`;
+    this.summary.textContent = `${info.gpu} · ${this.s.level.replace('{n}', info.level)} · ${info.summary}${fps}`;
     this.postNote.hidden = !info.postFailed;
   }
 }

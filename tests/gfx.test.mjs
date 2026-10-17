@@ -1,31 +1,51 @@
 import test from 'node:test';
+import '../js/gpu-level.js'; // window.StarHermitGpu (globalThis in Node)
 import assert from 'node:assert/strict';
 import {
-  PRESETS, CATEGORIES, detectPreset, resolve, presetTier, choosePreset, describe,
+  PRESETS, CATEGORIES, detectPreset, detectLevel, presetForLevel, BUDGETS, resolve, presetTier, choosePreset, describe,
   loadGraphics, saveGraphics, STORAGE_KEY,
 } from '../js/gfx.js';
 import { GFX_STRINGS, pickLocale, initialGraphics } from '../js/gfx-ui.js';
 
-test('detectPreset: software renderers get low', () => {
-  assert.equal(detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'), 'low');
-  assert.equal(detectPreset('llvmpipe (LLVM 15.0.7, 256 bits)'), 'low');
-  assert.equal(detectPreset('Microsoft Basic Render Driver'), 'low');
+const desk = { webgl: true, webgl2: true, cores: 8, memoryGb: 8 };
+const phone = { webgl: true, webgl2: true, mobile: true, cores: 8, memoryGb: 8 };
+
+test('hardware level → preset: Low 0, Balanced 4, High 10, Ultra 17', () => {
+  assert.equal(detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)', desk), 'low');
+  assert.equal(detectLevel('llvmpipe (LLVM 15.0.7, 256 bits)', desk), 0);
+  assert.equal(detectPreset('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0)', desk), 'low');
+  assert.equal(detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)', desk), 'low');
+  assert.equal(detectPreset('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)', desk), 'balanced');
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce GTX 1070 Direct3D11 vs_5_0 ps_5_0)', desk), 'high');
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra');
+  assert.equal(detectLevel('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 20);
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra');
+  assert.equal(detectPreset('', desk), 'balanced');
+  assert.equal(presetForLevel(3), 'low');
+  assert.equal(presetForLevel(16), 'high');
 });
 
-test('detectPreset: discrete GPUs and Apple M get high, integrated get balanced', () => {
-  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)'), 'high');
-  assert.equal(detectPreset('AMD Radeon RX 6800 XT'), 'high');
-  assert.equal(detectPreset('Apple M2'), 'high');
-  assert.equal(detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)'), 'balanced');
-  assert.equal(detectPreset('AMD Radeon Graphics'), 'balanced');
-  assert.equal(detectPreset('Adreno (TM) 740'), 'balanced');
-  assert.equal(detectPreset(''), 'balanced');
+test('phones and tablets are capped at Balanced; software GPUs stay Low', () => {
+  assert.equal(detectPreset('Adreno (TM) 740', phone), 'balanced');
+  assert.ok(detectLevel('Adreno (TM) 740', phone) <= 9);
+  assert.equal(detectPreset('NVIDIA GeForce RTX 5090', phone), 'balanced');
+  assert.equal(detectPreset('Mali-G77', phone), 'low');
+  assert.equal(detectPreset('SwiftShader', phone), 'low');
 });
 
-test('detectPreset: touch-first devices are capped at balanced', () => {
-  assert.equal(detectPreset('Apple M1', true), 'balanced');
-  assert.equal(detectPreset('Adreno (TM) 740', true), 'balanced');
-  assert.equal(detectPreset('SwiftShader', true), 'low');
+test('every preset has an explicit budget; counts grow from Low to Ultra and scale with the level', () => {
+  const order = ['low', 'balanced', 'high', 'ultra'];
+  for (const p of order) for (const k of ['material', 'cloudDetail', 'scenery', 'tufts', 'particles', 'motes']) assert.ok(BUDGETS[p][k] != null, `${p}.${k}`);
+  for (let i = 1; i < order.length; i++) {
+    for (const k of ['cloudDetail', 'scenery', 'tufts', 'particles', 'motes']) assert.ok(BUDGETS[order[i]][k] >= BUDGETS[order[i - 1]][k], `${order[i]}.${k}`);
+  }
+  assert.equal(BUDGETS.low.material, 'lambert');
+  const lowR = resolve({ preset: 'low' }, 'low', 0);
+  assert.equal(lowR.budget.islands, 6);
+  assert.equal(lowR.budget.motes, 0);
+  const u17 = resolve({ preset: 'ultra' }, 'ultra', 17).budget, u20 = resolve({ preset: 'ultra' }, 'ultra', 20).budget;
+  assert.ok(u20.pool > u17.pool && u20.islands >= u17.islands);
+  assert.deepEqual(resolve({ preset: 'ultra' }, 'low', 0).budget, u17, 'a manual Ultra on a weak GPU keeps the Ultra floor budget');
 });
 
 test('resolve: auto uses the detected preset and its row', () => {

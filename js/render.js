@@ -19,7 +19,7 @@ import { SMAAPass } from '../vendor/addons/postprocessing/SMAAPass.js';
 import { FXAAShader } from '../vendor/addons/shaders/FXAAShader.js';
 import { WORLD, gateGapY, currentGapHalf, currentSpeed, SIM_DT, createRng } from './rules.js';
 import { THEMES } from './content.js';
-import { detectPreset, resolve, describe, SHADOW_MAP, SCENERY, PARTICLES } from './gfx.js';
+import { detectLevel, presetForLevel, resolve, describe, SHADOW_MAP } from './gfx.js';
 
 /** Framing constants (exposed, not magic offsets). */
 export const FRAMING = {
@@ -161,12 +161,6 @@ function reducedMotionQuery() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)'); } catch { return null; }
 }
 
-function isTouchFirst() {
-  try {
-    return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches;
-  } catch { return false; }
-}
-
 /* ------------------------------ renderer ----------------------------- */
 
 export class Renderer {
@@ -190,7 +184,8 @@ export class Renderer {
     this._gfxSaved = opts.graphics || {};
     this.gpu = '';
     this.detected = 'balanced';
-    this.q = resolve(this._gfxSaved, this.detected);
+    this.level = 4;
+    this.q = resolve(this._gfxSaved, this.detected, this.level);
     this._buildRenderer();
     this._buildScene();
     this._buildPools();
@@ -204,8 +199,10 @@ export class Renderer {
     // GPU detection needs a context; probe one so the canvas context itself
     // can be created with the right native anti-aliasing for the resolved tier.
     this.gpu = Renderer._gpuName();
-    this.detected = detectPreset(this.gpu, isTouchFirst());
-    const q0 = resolve(this._gfxSaved, this.detected);
+    // StarHermit hardware level → Auto preset (SwiftShader = level 0 → Low; phones cap at Balanced).
+    this.level = detectLevel(this.gpu, globalThis.StarHermitGpu ? globalThis.StarHermitGpu.detectSystem() : {});
+    this.detected = presetForLevel(this.level);
+    const q0 = resolve(this._gfxSaved, this.detected, this.level);
     this.q = q0;
     this.nativeAA = q0.antialias === 'msaa' && !q0.post;
     this.renderer = new THREE.WebGLRenderer({
@@ -332,6 +329,13 @@ export class Renderer {
   }
 
   /** Env intensity per material role, 0 when reflections are off. */
+  /** Lit material for the preset budget: Lambert on Low, PBR Standard above. */
+  _std(params) {
+    if (this.q.budget.material !== 'lambert') return new THREE.MeshStandardMaterial(params);
+    const { roughness, metalness, ...rest } = params;
+    return new THREE.MeshLambertMaterial(rest);
+  }
+
   _env(m, k) {
     m.envMapIntensity = k;
     return m;
@@ -348,8 +352,8 @@ export class Renderer {
       this.birdMat = this._env(new THREE.MeshPhysicalMaterial({ color: t.bird, roughness: 0.55, metalness: 0, sheen: 0.8, sheenRoughness: 0.45, sheenColor: new THREE.Color(t.wing).lerp(new THREE.Color(0xffffff), 0.6) }), 0.45);
       this.wingMat = this._env(new THREE.MeshPhysicalMaterial({ color: t.wing, roughness: 0.5, metalness: 0, sheen: 0.6, sheenRoughness: 0.4, sheenColor: new THREE.Color(0xffffff) }), 0.45);
     } else {
-      this.birdMat = this._env(new THREE.MeshStandardMaterial({ color: t.bird, roughness: 0.6, metalness: 0.05 }), 0.4);
-      this.wingMat = this._env(new THREE.MeshStandardMaterial({ color: t.wing, roughness: 0.55, metalness: 0.05 }), 0.4);
+      this.birdMat = this._env(this._std({ color: t.bird, roughness: 0.6, metalness: 0.05 }), 0.4);
+      this.wingMat = this._env(this._std({ color: t.wing, roughness: 0.55, metalness: 0.05 }), 0.4);
     }
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, detailed ? 32 : 24, detailed ? 24 : 18), this.birdMat);
     body.scale.set(1.15, 0.95, 0.9);
@@ -359,7 +363,7 @@ export class Renderer {
     head.castShadow = true; head.receiveShadow = true;
     const beakMat = detailed
       ? this._env(new THREE.MeshPhysicalMaterial({ color: 0xff9d3c, roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.25 }), 0.6)
-      : this._env(new THREE.MeshStandardMaterial({ color: 0xff9d3c, roughness: 0.5 }), 0.4);
+      : this._env(this._std({ color: 0xff9d3c, roughness: 0.5 }), 0.4);
     const beak = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.3, 10), beakMat);
     beak.rotation.z = -Math.PI / 2;
     beak.position.set(0.72, 0.22, 0);
@@ -427,10 +431,10 @@ export class Renderer {
     const t = this._theme;
     const detailed = this.q.detail === 'detailed';
     if (kind === 'trim') {
-      const m = new THREE.MeshStandardMaterial({ color: t.gateTrim, roughness: 0.35, emissive: t.gateTrim, emissiveIntensity: 0.25 });
+      const m = this._std({ color: t.gateTrim, roughness: 0.35, emissive: t.gateTrim, emissiveIntensity: 0.25 });
       return this._env(m, 0.5);
     }
-    if (!detailed) return this._env(new THREE.MeshStandardMaterial({ color: t.gate, roughness: 0.7, metalness: 0.05 }), 0.45);
+    if (!detailed) return this._env(this._std({ color: t.gate, roughness: 0.7, metalness: 0.05 }), 0.45);
     // Glazed terracotta: clearcoat shell over coursed, slightly varied tiles.
     const m = this._env(new THREE.MeshPhysicalMaterial({
       color: t.gate, roughness: 0.62, metalness: 0,
@@ -497,15 +501,15 @@ export class Renderer {
     // Dispose previous.
     for (const c of [...this.envGroup.children]) this._disposeObject(c);
     this.envGroup.clear();
-    const counts = SCENERY[this.q.scenery] || SCENERY.normal;
+    const counts = this.q.budget; // islands / clouds for this scenery tier and preset budget
     const detailed = this.q.detail === 'detailed';
     const rng = createRng((seed ^ 0xdec0) >>> 0); // decoration stream: cosmetic only
     const t = this._theme;
     this._islands = [];
     this._clouds = [];
 
-    const rockMat = this._env(new THREE.MeshStandardMaterial({ color: detailed ? 0xffffff : t.islandRock, vertexColors: detailed, roughness: 0.95, flatShading: true }), 0.3);
-    const grassMat = this._env(new THREE.MeshStandardMaterial({ color: detailed ? 0xffffff : t.islandTop, vertexColors: detailed, roughness: 0.85, flatShading: true }), 0.3);
+    const rockMat = this._env(this._std({ color: detailed ? 0xffffff : t.islandRock, vertexColors: detailed, roughness: 0.95, flatShading: true }), 0.3);
+    const grassMat = this._env(this._std({ color: detailed ? 0xffffff : t.islandTop, vertexColors: detailed, roughness: 0.85, flatShading: true }), 0.3);
     const rockCol = new THREE.Color(t.islandRock), grassCol = new THREE.Color(t.islandTop), tmp = new THREE.Color();
     // Vertex tint: strata bands + darker tip for rock, sunlit rim for grass (cosmetic rng).
     const tint = (geo, base, fn) => {
@@ -537,7 +541,7 @@ export class Renderer {
       const capGeo = new THREE.CylinderGeometry(s, s * 0.92, s * 0.28, detailed ? 14 : 9);
       if (detailed) tint(capGeo, grassCol, (x, y) => (y > 0 ? 1.12 : 0.78));
       const cap = new THREE.Mesh(capGeo, grassMat);
-      const tuftN = 2 + Math.floor(rng.next() * 3);
+      const tuftN = 2 + Math.floor(rng.next() * 3) + this.q.budget.tufts;
       for (let k = 0; k < tuftN; k++) {
         const tuftGeo = new THREE.ConeGeometry(s * 0.12, s * 0.5, 5);
         if (detailed) tint(tuftGeo, grassCol, (x, y) => 0.8 + (y + s * 0.25) / (s * 0.5) * 0.45);
@@ -555,7 +559,7 @@ export class Renderer {
     }
 
     // Clouds: self-lit so undersides stay soft; detailed = smooth, rounder puffs.
-    const cloudMat = this._env(new THREE.MeshStandardMaterial({
+    const cloudMat = this._env(this._std({
       color: t.cloud, roughness: 1, flatShading: !detailed,
       emissive: t.cloud, emissiveIntensity: detailed ? 0.12 : 0.1,
     }), 0.35);
@@ -564,7 +568,7 @@ export class Renderer {
       const puffs = 3 + Math.floor(rng.next() * 4);
       for (let k = 0; k < puffs; k++) {
         const r = 0.8 + rng.next() * 1.6;
-        const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, detailed ? 3 : 1), cloudMat);
+        const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, detailed ? this.q.budget.cloudDetail : 1), cloudMat);
         puff.position.set(k * r * 1.1 - puffs * 0.5, (rng.next() - 0.5) * 0.8, (rng.next() - 0.5) * 0.8);
         if (detailed) puff.scale.y = 0.82;
         cl.add(puff);
@@ -581,7 +585,7 @@ export class Renderer {
   /* --------------------------- particles ---------------------------- */
 
   _buildPools() {
-    const budget = PARTICLES[this.q.particles] || PARTICLES.low;
+    const budget = this.q.budget; // pool / motes for this Particles tier and preset budget
     const max = Math.min(budget.pool, 20000);
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(max * 3);
@@ -653,7 +657,7 @@ export class Renderer {
   _fxRng() { return (this._fxSeed = ((this._fxSeed || 22222) * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }
 
   burst(x, y, n, color, opts = {}) {
-    const budget = PARTICLES[this.q.particles] || PARTICLES.low;
+    const budget = this.q.budget;
     if (this.reducedMotion) n = Math.min(n, 6);
     else if (this.q.particles === 'high') n = Math.round(n * 1.5);
     const count = Math.min(n, this._parts.length, budget.pool);
@@ -711,7 +715,7 @@ export class Renderer {
   setGraphics(saved, initial = false) {
     this._gfxSaved = { ...(saved || {}) };
     const prev = initial ? null : this.q;
-    const g = resolve(this._gfxSaved, this.detected);
+    const g = resolve(this._gfxSaved, this.detected, this.level);
     this.q = g;
     this.tier = g.preset;
 
@@ -732,13 +736,14 @@ export class Renderer {
     this.sunHalo.visible = g.sky === 'detailed';
 
     // Geometry / material fidelity.
-    const rebuildMeshes = !prev || prev.detail !== g.detail || prev.reflections !== g.reflections;
+    const rebuildMeshes = !prev || prev.detail !== g.detail || prev.reflections !== g.reflections ||
+      prev.budget.material !== g.budget.material || prev.budget.cloudDetail !== g.budget.cloudDetail;
     if (rebuildMeshes && !initial) {
       this._buildBird();
       this._clearGates();
     }
-    if (!initial && (rebuildMeshes || prev.scenery !== g.scenery)) this._buildEnvironment(this._envSeed || 1);
-    if (initial || prev.particles !== g.particles) {
+    if (!initial && (rebuildMeshes || prev.budget.islands !== g.budget.islands || prev.budget.clouds !== g.budget.clouds || prev.budget.tufts !== g.budget.tufts)) this._buildEnvironment(this._envSeed || 1);
+    if (initial || prev.budget.pool !== g.budget.pool || prev.budget.motes !== g.budget.motes) {
       if (!initial) { this.fxGroup.remove(this.points); this._disposeObject(this.points); }
       if (!initial || !this.points) this._buildPools();
     }
@@ -775,6 +780,7 @@ export class Renderer {
     const px = [Math.round(w * this.pixelRatio), Math.round(h * this.pixelRatio)];
     return {
       gpu: this.gpu || 'unknown GPU',
+      level: this.level,
       detected: this.detected,
       resolved: this.q,
       summary: describe(this.q, px, labels),
