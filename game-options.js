@@ -415,7 +415,12 @@
     return values.some(value => /^en(?:[-_]|$)/.test(value)) && values.some(value => /^es(?:[-_]|$)/.test(value));
   }
   function language() {
-    if (root.GameLanguage && typeof root.GameLanguage.locale === 'function') return String(root.GameLanguage.locale()).toLowerCase().split('-')[0];
+    // Games set <html lang> to the locale they render, including a ?lang= QA override the
+    // resolver doesn't know about, so follow it once a GameLanguage is registered.
+    if (root.GameLanguage && typeof root.GameLanguage.locale === 'function') {
+      const shown = String(doc.documentElement.lang || '').toLowerCase().split('-')[0];
+      return TEXT[shown] ? shown : String(root.GameLanguage.locale()).toLowerCase().split('-')[0];
+    }
     const choice = [...doc.querySelectorAll('select')].find(node => localeSelect(node) && /^(en|es|de|fr|pt|it)(?:[-_]|$)/i.test(node.value));
     const value = localeOverride || choice?.value || (doc.documentElement.lang && !/^en(?:[-_]|$)/i.test(doc.documentElement.lang) ? doc.documentElement.lang : root.navigator.language || 'en');
     return String(value).toLowerCase().split(/[-_]/)[0];
@@ -546,6 +551,8 @@
         panel.mode.options[0].textContent = t[10]; panel.mode.options[1].textContent = t[8];
         panel.sounds.options[4].textContent = t[8];
         panel.reportHeading.textContent = t[14]; panel.reportSend.textContent = t[17];
+        // A finished report's status line is in the old language; clear it rather than mix languages.
+        const reportStatus = panel.report.querySelector('[data-game-report="status"]'); if (reportStatus && !panel.reportSend.disabled) reportStatus.textContent = '';
         for (const node of panel.report.querySelectorAll('[data-game-options-label]')) node.firstElementChild.textContent = t[Number(node.dataset.gameOptionsLabel)];
       }
       panel.report.hidden = !(sdk?.signedIn && typeof sdk.reportBug === 'function');
