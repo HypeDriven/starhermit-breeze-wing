@@ -525,16 +525,20 @@ with the launch token, structured `{"error": …}` responses, `Retry-After` on 4
   Phones and tablets pace Auto FPS at half the display refresh rate ("Auto (half refresh rate)") and
   start at 16 simultaneous sounds (shared `game-options.js`).
 
-  **Benchmark** (`node tools/gfx-bench.mjs breeze-wing`; hook `tests/gfx-bench.mjs` picks the preset
-  in Settings and flies today's Daily with real Space presses / taps, retrying after a fall). Measured
-  2026-10-17 (AMD Radeon iGPU level 2 GPU time projected to the preset's floor level; RTX 5090 CPU time):
-  - Desktop 1920×1080: FAIL low (GPU p90 10.86 ms → ≈ 16.43 ms at level 0, CPU 1.60 ms); PASS balanced
-    (15.75 → ≈ 10.41 ms at level 4, CPU 2.70 ms); PASS high (21.49 → ≈ 4.10 ms at level 10, CPU 3.00 ms);
-    PASS ultra (36.98 → ≈ 1.66 ms at level 17, CPU 2.70 ms).
-  - Mobile 390×844 @3×: FAIL low (17.04 → ≈ 25.79 ms, CPU 1.00 ms); PASS balanced (14.70 → ≈ 9.71 ms,
-    CPU 1.40 ms).
-  - Low is at the benchmark's floor on this machine: a blank page that only clears a full-window WebGL
-    canvas measured 11.34 ms p90 (≈ 17 ms at level 0) in the same session.
+  **Benchmark** (`node tools/gfx-bench.mjs breeze-wing`; hook `tests/gfx-bench.mjs` picks the preset in
+  Settings and flies today's Daily with real Space presses / taps, retrying after a fall). Measured
+  2026-10-18 with the final gate (AMD Radeon iGPU level 2 GPU time minus the same page and preset
+  re-recorded with every WebGL draw call skipped, percentile for percentile, projected to the preset's
+  floor level: typical p50 ≤ 12 ms, slow p90 ≤ 14 ms; RTX 5090 CPU p90 ≤ 6 ms):
+  - Desktop 1920×1080: PASS low (GPU p50 11.29 / p90 12.61 ms, draws skipped 11.28 / 11.87 → typical
+    0.03, slow 1.12 at level 0; CPU p90 0.90 ms); PASS balanced (GPU p50 16.74 / p90 18.60 ms, draws
+    skipped 10.87 / 11.82 → typical 3.88, slow 4.48 at level 4; CPU p90 1.50 ms); PASS high (GPU p50
+    17.07 / p90 18.24 ms, draws skipped 10.88 / 11.94 → typical 1.18, slow 1.20 at level 10; CPU p90 1.70
+    ms); PASS ultra (GPU p50 22.07 / p90 29.35 ms, draws skipped 11.17 / 12.49 → typical 0.49, slow 0.76
+    at level 17; CPU p90 1.50 ms).
+  - Mobile 390×844 @3×: PASS low (GPU p50 14.53 / p90 16.79 ms, draws skipped 14.46 / 16.66 → typical
+    0.11, slow 0.20 at level 0; CPU p90 0.80 ms); PASS balanced (GPU p50 14.48 / p90 16.73 ms, draws
+    skipped 14.39 / 16.72 → typical 0.05, slow 0.01 at level 4; CPU p90 1.20 ms).
 
   Low renders straight to the canvas with no extra passes, no shadows and no canvas MSAA — no more
   work than the previous Low tier. Graphics never change rules, hitboxes or hazard visibility.
