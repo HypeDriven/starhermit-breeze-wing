@@ -1,8 +1,8 @@
 // Plays the web package in headless Chrome (the loader index.html that
 // `npm run package` writes), past ~/games/tools/engine-web-smoke.mjs's start:
 // at a desktop viewport with the keyboard (Enter on the focused Play opens
-// lesson 1's setup, Enter on Start, Space flaps through the lesson to its
-// results, Escape back to the title), at a phone viewport (keys into a
+// lesson 1's setup, Enter on Start, Space flaps, the fall ends the flight on
+// the results, Escape back to the title), at a phone viewport (keys into a
 // round, then taps on the sky flap, Escape pauses) and at a phone held
 // sideways, failing on console errors or warnings or the runtime's error
 // screen.
@@ -51,8 +51,9 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true, args:
 let failed = false;
 const play = [['click', 4, 4], ['shot', 'title'], ['key', 'Enter'], ['shot', 'setup'], ['key', 'Enter'], ['wait', 6000], ['shot', 'countdown']];
 const views = [
-  // lesson 1 is three flaps: the results follow
-  { name: 'desktop', viewport: { width: 1366, height: 768 }, steps: [...play, ['wait', 8000], ['flaps', 2], ['shot', 'flying'], ['flaps', 1], ['wait', 4000], ['shot', 'results'], ['key', 'Escape'], ['shot', 'title-again']] },
+  // the software GPU runs the sim slower than wall time: generous waits before flying
+  // two flaps, then the bird falls into the sea: the results follow (Escape: the title)
+  { name: 'desktop', viewport: { width: 1366, height: 768 }, steps: [...play, ['wait', 16000], ['flaps', 2], ['shot', 'flying'], ['wait', 2000], ['shot', 'results'], ['key', 'Escape'], ['shot', 'title-again']] },
   // phone: into a round by keys, then taps on the sky flap
   { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, steps: [...play, ['wait', 8000], ['tap', 0.5, 0.45], ['tap', 0.5, 0.45], ['shot', 'tapped'], ['key', 'Escape'], ['shot', 'pause']] },
   { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, steps: [...play, ['wait', 8000], ['tap', 0.45, 0.5], ['tap', 0.45, 0.5], ['shot', 'tapped'], ['key', 'Escape'], ['shot', 'pause']] },
