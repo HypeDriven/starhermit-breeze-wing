@@ -21,7 +21,8 @@ import { requestSignIn } from "starhermit:platform";
 import { ACHIEVEMENTS, JOURNEY } from "../js/content.js";
 import { PALETTES } from "../js/migrate.js";
 import { TICKS_PER_SECOND } from "../js/rules.js";
-import { T, cfgName } from "./i18n.ts";
+import { N, T, cfgName } from "./i18n.ts";
+import * as audio from "./audio.ts";
 import * as platform from "./platform.ts";
 import {
   app, closeOverlay, continueAway, dailyDone, leaveRound, loadBoard, next, openAchievements, openBoards,
@@ -61,7 +62,7 @@ function button(b: Btn, width: number | null = null): void {
     const inner = width - 36;
     opts.content = () => { ui.paragraph(b.text, inner, { weight: "600", ...(style.includes("btn-big") ? { size: 20.8 } : {}) }); };
   }
-  if (ui.style(...style, s).id(b.id).button(b.text, opts)) { b.act(); }
+  if (ui.style(...style, s).id(b.id).button(b.text, opts)) { audio.event("ui"); b.act(); }
 }
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, align: "start" | "center" | "end" = "start", gap = 8): void {
@@ -200,14 +201,11 @@ function firstLabel(name: ScreenName): string | null {
 let toastH = 40;
 export function drawScreens(): void {
   const L = layoutNow();
-  // A screen that just opened focuses its first control once its layout has
-  // settled; a tall screen moves into its scroll area a frame later, where a
-  // focus asked for too early does not take: ask again until it does.
-  const age = frame().frame - app.openedFrame;
-  if (app.focusNext && app.screen && age >= 2) {
+  // A screen that just opened focuses its first control once its layout has settled.
+  if (app.focusNext && app.screen && frame().frame - app.openedFrame >= 2) {
     const first = firstLabel(app.screen);
-    if (first && age < 12 && ui.focused() !== first) ui.setFocus(first);
-    else app.focusNext = false;
+    if (first) ui.setFocus(first);
+    app.focusNext = false;
   }
   const hudOn = !!session && (app.appState === "countdown" || app.appState === "active" || app.appState === "paused");
   if (hudOn) hud(L);
@@ -546,9 +544,9 @@ function resultsScreen(L: Layout): void {
   screen("results", L, (L.wide ? 32 : 30) * REM, (w) => {
     h2(won ? T("Clear skies!") : T("Flight ended"), "results-heading");
     const reasonKey: Record<string, string> = {
-      floor: "You met the sea.", ceiling: "You clipped the sky.", gate: "A gate edge caught your wing.",
-      "move-limit": "Out of flaps — so close!", "time-up": "Time ran out.",
-      cleared: cfg.mode === "learn" ? "Lesson complete!" : "Every gate threaded.", abandon: "You headed home early.",
+      floor: N("You met the sea."), ceiling: N("You clipped the sky."), gate: N("A gate edge caught your wing."),
+      "move-limit": N("Out of flaps — so close!"), "time-up": N("Time ran out."),
+      cleared: cfg.mode === "learn" ? N("Lesson complete!") : N("Every gate threaded."), abandon: N("You headed home early."),
     };
     const parts = [T(reasonKey[s.terminal ? s.terminal.reason : "abandon"]!)];
     parts.push(...res.extras.map((e) => T(e)));

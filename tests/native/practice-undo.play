@@ -34,7 +34,9 @@ frames 10
 save paused
 click Resume
 until 30 Pause
-until 400 Flight ended
+# (the caption "[thud: flight ended]" shows first: wait on the table)
+until 400 Gates passed
+expect Flight ended
 expect You met the sea.
 frames 30
 save practice-results

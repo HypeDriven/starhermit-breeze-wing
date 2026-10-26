@@ -1,5 +1,5 @@
-# The other screens: Achievements, Leaderboards (a guest sees this device's
-# boards), Settings (the game's palette and assists, the runtime's Options
+# The other screens: Achievements, Leaderboards (a guest reads the global board,
+# or this device's when the platform is out of reach), Settings (the game's palette and assists, the runtime's Options
 # for the rest) and Help with the bound keys; the Daily Breeze setup and a
 # round paused in its countdown, Settings and Help from the pause screen, and
 # Leave round to the ranked results; Escape backs out of screens.
@@ -14,8 +14,8 @@ click Back
 until 60 Play
 frames 10
 click Leaderboards
-until 60 Offline — showing this device's scores.
-frames 10
+until 60 This device
+frames 30
 click This device
 until 60 Scores from this device.
 expect No scores yet — be the first breeze.

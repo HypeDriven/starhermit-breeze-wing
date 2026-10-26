@@ -34,7 +34,9 @@ frames 35
 key Space 2
 frames 40
 save journey-flying
-until 600 Flight ended
+# (the caption "[thud: flight ended]" shows first: wait on the table)
+until 600 Gates passed
+expect Flight ended
 expect Gates passed
 expect 315
 frames 30

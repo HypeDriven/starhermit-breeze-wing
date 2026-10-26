@@ -19,7 +19,7 @@
 //   submitScores did).
 import type { JsonValue } from "starhermit:engine";
 import { OffscreenCanvas } from "starhermit:canvas";
-import { avatar, connectGame, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile, sessions, type Leaderboard } from "starhermit:platform";
+import { avatar, connectGame, serverNow, serverTime, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile, sessions, type Leaderboard } from "starhermit:platform";
 import { saves, settings as store, storage } from "starhermit:storage";
 import * as M from "../js/migrate.js";
 
@@ -156,6 +156,18 @@ export function initPlatform(): void {
   refreshPlayer();
 }
 
+// --- the platform's clock ------------------------------------------------------------------
+/** The platform's time (the shared day of Daily Breeze), else the device's clock offline. */
+export function now(): Date {
+  let t: number | null = null;
+  try { t = serverNow(); } catch { t = null; }
+  return new Date(t ?? Date.now());
+}
+/** Whether now() follows the platform's clock. */
+export function timeTrusted(): boolean { try { return serverNow() !== null; } catch { return false; } }
+/** Starts the first reading (from onStart). */
+export function syncTime(): void { void serverTime().catch(() => undefined); }
+
 // --- the player -----------------------------------------------------------------------------
 export function signedIn(): boolean { return !!player(); }
 export function userId(): string | null { return player()?.userId ?? null; }
@@ -196,19 +208,20 @@ async function highScoreBoard(): Promise<Leaderboard | null> {
   return board;
 }
 export interface BoardRow { name: string; score: number; you: boolean }
-/** The Leaderboards screen's rows (the first 50, names from the players' profiles; the player's own "You (name)"), or null when unavailable. */
+/** The Leaderboards screen's rows (the first 50, names from the players' profiles when signed in; the player's own "You (name)"), or null when unavailable. */
 export async function fetchLeaderboard(friendsOnly: boolean, youLabel: (name: string) => string): Promise<BoardRow[] | null> {
   const me = player();
-  if (!me) return null;
+  // Guests read the global board too (a public read); friends need a player.
+  if (!me && friendsOnly) return null;
   try {
     const b = await highScoreBoard();
     if (!b) return null;
     const page = await leaderboards.entries(b.id, { pageSize: 50, ...(friendsOnly ? { friendsOnly: true, scope: "friends" } : {}) });
     return await Promise.all(page.items.map(async (e) => {
       let name = e.username || "Player " + e.userId.slice(0, 8);
-      if (e.userId === me.userId) name = me.displayName;
-      else { try { name = (await profile(e.userId)).displayName; } catch { /* the username */ } }
-      const you = e.userId === me.userId;
+      if (me && e.userId === me.userId) name = me.displayName;
+      else if (me) { try { name = (await profile(e.userId)).displayName; } catch { /* the username */ } }
+      const you = !!me && e.userId === me.userId;
       return { name: you ? youLabel(name) : name, score: Math.floor(Number(e.score) || 0), you };
     }));
   } catch { return null; }

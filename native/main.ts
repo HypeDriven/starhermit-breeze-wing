@@ -107,7 +107,7 @@ export function showScreen(name: ScreenName | null): void {
   if (name && name !== "countdown") { app.toast = null; app.caption = null; }
   if (!name || name === "countdown") ui.setFocus(null);
 }
-export function dailyDone(): boolean { return !!progress().best[dailyContent(new Date()).id]; }
+export function dailyDone(): boolean { return !!progress().best[dailyContent(platform.now()).id]; }
 
 export function toTitle(): void {
   app.appState = "title";
@@ -134,7 +134,6 @@ export function openSetup(cfg: Cfg, blurb?: string | (() => string), options?: S
 export function pickSetupOption(id: string): void {
   const v = app.setup;
   if (!v || !v.options) return;
-  audio.event("ui");
   const picked = v.options.find((o) => o.id === id);
   if (picked && picked.config) app.pendingConfig = picked.config;
   v.selected = id;
@@ -149,7 +148,9 @@ export function openPlay(): void {
   }
 }
 export function openDaily(): void {
-  openSetup(dailyContent(new Date()), () => T("One shared sky for everyone today."));
+  // The shared day follows the platform's clock; offline, the device's.
+  const note = (): string => (platform.timeTrusted() ? N("Synchronized to server time.") : N("Using local clock (offline)."));
+  openSetup(dailyContent(platform.now()), () => `${T("One shared sky for everyone today.")} ${T(note())}`);
 }
 export function openJourney(): void { app.appState = "mode-select"; showScreen("journey"); }
 export function openLearn(): void {
@@ -164,7 +165,7 @@ export function openChallenges(): void {
   openSetup(CHALLENGES[0], N("Constrained goals for seasoned wings."), CHALLENGES.map((c: Cfg) => ({ id: c.id, name: c.name, desc: () => T(c.blurb), config: c })));
 }
 export function openChase(): void {
-  const seed = `sky-${new Date().toISOString().slice(0, 10)}`;
+  const seed = `sky-${platform.now().toISOString().slice(0, 10)}`;
   openSetup(scoreChaseContent(seed), () => T('Endless score chase. Share the seed "{seed}" to fly the same sky as friends.', { seed }));
 }
 /** Help / Settings from the title or the pause screen; Back returns there. */
@@ -184,7 +185,7 @@ export function loadBoard(tab: BoardTab): void {
   b.tab = tab;
   const local = (note: string): void => { b.entries = progress().localBoard.map((e: Cfg) => ({ name: e.name, score: e.score, you: !!e.you })); b.note = note; };
   if (tab === "local") { local(N("Scores from this device. Casual — verified boards require sign-in.")); return; }
-  if (!platform.signedIn()) { local(N("Offline — showing this device's scores. Sign in for global boards.")); return; }
+  if (tab === "friends" && !platform.signedIn()) { local(N("Offline — showing this device's scores. Sign in for global boards.")); return; }
   b.entries = null;
   b.note = "";
   void platform.fetchLeaderboard(tab === "friends", (name) => T("You ({name})", { name })).then((rows) => {
@@ -395,7 +396,7 @@ function progressRound(s: State, won: boolean, cfg: Cfg): { extras: string[]; ea
   const extras: string[] = [];
   p.totalRuns += 1;
   p.totalGates += s.gatesPassed;
-  const dayKey = new Date().toISOString().slice(0, 10);
+  const dayKey = platform.now().toISOString().slice(0, 10);
   if (!p.daysPlayed.includes(dayKey)) p.daysPlayed.push(dayKey);
   if (cfg.mode === "learn" && won) {
     p.lessons[cfg.id] = true;
@@ -537,6 +538,7 @@ onStart(() => {
   setFixedRate(TICKS_PER_SECOND);
   initStyles();
   platform.initPlatform();
+  platform.syncTime();
   applySettings();
   audio.loadSfx();
   applyLook();
@@ -589,7 +591,7 @@ onRender((alpha) => {
   } else {
     // The title's idle sky: today's daily scene, no input.
     if (!idle) {
-      const g = new GameSession(dailyContent(new Date()));
+      const g = new GameSession(dailyContent(platform.now()));
       render.prepareSession(g.config);
       idle = { state: g.state as State };
     }

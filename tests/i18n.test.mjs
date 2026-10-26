@@ -23,8 +23,6 @@ export function usedKeys() {
   for (const p of PRACTICE_PRESETS) { keys.add(p.name); keys.add(p.difficulty); }
   keys.add(scoreChaseContent('x').name);
   for (const a of ACHIEVEMENTS) { keys.add(a.name); keys.add(a.desc); }
-  // Results reasons (a table of keys in screens.ts) and the setup facts' content-driven lines.
-  for (const k of ['You met the sea.', 'You clipped the sky.', 'A gate edge caught your wing.', 'Out of flaps — so close!', 'Time ran out.', 'Lesson complete!', 'Every gate threaded.', 'You headed home early.']) keys.add(k);
   ['3', '2', '1'].forEach((k) => keys.delete(k));
   return [...keys].sort();
 }
