@@ -1,0 +1,97 @@
+# Learn: a fresh profile's Play opens lesson 1 (First Lift); three flaps on
+# Space clear it, Next lesson runs lesson 2 (Hold the Line: six seconds
+# aloft) and lesson 3 (Thread the Gate: three gates), each flown by the
+# rules bot's plan (`node tools/plan.mjs learn-N`: the round waits for the
+# first flap and then counts one tick a frame, so the planned score is the
+# score), through the results with their breakdown.
+until 300 Play
+frames 200
+save title
+click Play
+until 60 First Lift
+frames 10
+save setup
+expect flap 3 times
+click Start
+frames 170
+# plan: # learn-1: cleared at tick 81, 3 flaps, 0 gates, score 0
+key Space 2
+frames 41
+key Space 2
+frames 35
+key Space 2
+until 200 Clear skies!
+expect Lesson complete!
+expect Next lesson
+expect First Clearing
+frames 30
+save lesson1-results
+click Next lesson →
+until 60 Hold the Line
+frames 170
+# plan: # learn-2: cleared at tick 360, 10 flaps, 0 gates, score 0
+key Space 2
+frames 41
+key Space 2
+frames 35
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 35
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+until 600 Clear skies!
+expect Lesson complete!
+frames 30
+click Next lesson →
+until 60 Thread the Gate
+frames 170
+# plan: # learn-3: cleared at tick 582, 16 flaps, 3 gates, score 488
+key Space 2
+frames 41
+key Space 2
+frames 35
+key Space 2
+frames 35
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 34
+key Space 2
+frames 33
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 50
+key Space 2
+frames 35
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+until 900 Clear skies!
+expect Lesson complete!
+expect Gates passed
+expect 488
+frames 30
+save lesson3-results
+click Menu
+until 60 Play

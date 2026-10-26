@@ -1,12 +1,35 @@
 name=Breeze Wing
 description=Tap to keep a bird aloft and fly through narrow gates, aiming for the center to build scoring streaks.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=score-script.js
 version=1.0.0
 cover=cover.jpg
+
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.14.0
+engine.minor=16
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard controls (players rebind keys and pads in the runtime's Options).
+# A click or a tap anywhere on the sky flaps too.
 control.flap=Space+ArrowUp+KeyW | Flap
 control.pause=Escape+KeyP | Pause / back
 control.undo=KeyU | Undo (practice)
-control.restart=KeyR | Restart from results
+control.restart=KeyR | Retry from results
 control.help=KeyH | Help
+engine.group.flap=Flight
+engine.group.undo=Practice and results
+
+# Gamepad defaults for the same actions.
+engine.gamepad.flap=South
+engine.gamepad.pause=Start+East
+engine.gamepad.undo=West
+engine.gamepad.restart=North
+engine.gamepad.help=Select

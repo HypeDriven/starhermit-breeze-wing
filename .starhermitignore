@@ -1,0 +1,9 @@
+# Development files the engine leaves out of the package (besides its default
+# rules: dot-names, node_modules/, package.json, tsconfig.json, …).
+tests/
+tools/
+server.js
+data/
+test-results/
+knownissues.md
+spec.md

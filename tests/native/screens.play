@@ -1,0 +1,74 @@
+# The other screens: Achievements, Leaderboards (a guest sees this device's
+# boards), Settings (the game's palette and assists, the runtime's Options
+# for the rest) and Help with the bound keys; the Daily Breeze setup and a
+# round paused in its countdown, Settings and Help from the pause screen, and
+# Leave round to the ranked results; Escape backs out of screens.
+until 300 Play
+frames 60
+click Achievements
+until 60 First Clearing
+expect Finish all five lessons.
+frames 10
+save achievements
+click Back
+until 60 Play
+frames 10
+click Leaderboards
+until 60 Offline — showing this device's scores.
+frames 10
+click This device
+until 60 Scores from this device.
+expect No scores yet — be the first breeze.
+frames 10
+save boards
+key Escape 2
+until 60 Play
+frames 10
+click Settings
+until 60 Color palette
+expect Predicted flight arc (timing assist)
+expect Open Options
+frames 10
+save settings
+click Left-handed layout
+frames 10
+click Back
+until 60 Play
+frames 10
+key KeyH 2
+until 60 How to play
+expect Space
+frames 10
+click Back
+until 60 Play
+frames 10
+click Daily Breeze
+until 60 One shared sky for everyone today.
+expect survive 90s
+expect Yes — shared seed, replay-verified
+frames 10
+save daily-setup
+click Start
+frames 30
+key Escape 2
+until 30 Paused
+frames 10
+click Settings
+until 60 Color palette
+frames 10
+click Back
+until 60 Paused
+frames 10
+click Help
+until 60 How to play
+frames 10
+key Escape 2
+until 60 Paused
+frames 10
+click Leave round
+until 60 You headed home early.
+expect Ranked round — replay recorded for verification.
+frames 10
+save daily-results
+click Menu
+until 60 Play

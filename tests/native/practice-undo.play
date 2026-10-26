@@ -1,0 +1,51 @@
+# Practice: Calm Skies from the title's Practice (the setup's option list),
+# a few flaps on Space, Undo (U) rewinds the last one, Escape pauses and
+# Resume flies on; then no more flaps: the bird meets the sea, the results
+# say so; R retries, Escape pauses the
+# countdown and Leave round ends it as "headed home early"; Menu.
+until 300 Play
+frames 60
+click Practice
+until 60 Calm Skies
+frames 10
+expect endless, undo allowed, unranked
+click Breezy
+frames 10
+click Calm Skies
+frames 10
+save practice-setup
+click Start
+frames 170
+key Space 2
+frames 30
+key Space 2
+frames 25
+key Space 2
+frames 10
+save flying
+frames 20
+key KeyU 2
+until 30 [soft rewind]
+frames 5
+save undone
+key Escape 2
+until 30 Paused
+frames 10
+save paused
+click Resume
+until 30 Pause
+until 400 Flight ended
+expect You met the sea.
+frames 30
+save practice-results
+key KeyR 2
+until 60 Calm Skies
+frames 60
+key Escape 2
+until 30 Leave round
+frames 10
+click Leave round
+until 60 You headed home early.
+frames 10
+click Menu
+until 60 Play

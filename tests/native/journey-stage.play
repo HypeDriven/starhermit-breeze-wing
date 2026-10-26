@@ -1,0 +1,56 @@
+# Journey: stage 1 from the Journey grid, flown by the rules bot's plan
+# through two gates and then left to fall (`node tools/plan.mjs journey-01
+# --crash-after 2`), so the results show the planned breakdown; Retry from
+# the results starts the stage again, and the grid shows it still uncleared.
+until 300 Play
+frames 60
+click Journey
+until 60 Forty authored stages
+frames 20
+save journey
+# the grid scrolls in the 960 × 540 check (play scripts click only outside
+# scroll areas): the first stage has the focus, Enter opens it
+key Enter 2
+until 60 pass 10 gates
+frames 10
+save journey-setup
+click Start
+frames 170
+# plan: # journey-01: floor at tick 337, 8 flaps, 2 gates, score 315
+key Space 2
+frames 41
+key Space 2
+frames 24
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 36
+key Space 2
+frames 53
+key Space 2
+frames 35
+key Space 2
+frames 40
+save journey-flying
+until 600 Flight ended
+expect Gates passed
+expect 315
+frames 30
+save journey-results
+click Retry
+until 60 Ember Dawn 1
+frames 60
+key Escape 2
+until 30 Leave round
+frames 10
+click Leave round
+until 60 You headed home early.
+frames 10
+click Menu
+until 60 Play
+frames 10
+click Journey
+until 60 Forty authored stages
+expect 1Ember

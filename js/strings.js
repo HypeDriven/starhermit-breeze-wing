@@ -1,15 +1,10 @@
-/* Breeze Wing — translation tables (see js/i18n.js).
+/* Breeze Wing — translation tables (see js/i18n.js), an ES module.
  * Each row: [English key, es-419, de-DE, fr-FR, pt-BR, it-IT]. en-GB, es-ES and
  * fr-CA list only where they differ from en-US, es-419 and fr-FR.
  * "Breeze Wing" and "StarHermit" are names and stay as they are.
  */
-(function (root) {
-  'use strict';
   var ROWS = [
     // ---- shell, HUD
-    ['Breeze Wing game', 'Juego Breeze Wing', 'Spiel Breeze Wing', 'Jeu Breeze Wing', 'Jogo Breeze Wing', 'Gioco Breeze Wing'],
-    ['Pass the gates', 'Atraviesa las puertas', 'Durch die Tore', 'Passez les portes', 'Passe pelos portões', 'Supera le porte'],
-    ['Score', 'Puntuación', 'Punkte', 'Score', 'Pontuação', 'Punteggio'],
     ['Undo', 'Deshacer', 'Rückgängig', 'Annuler', 'Desfazer', 'Annulla'],
     ['Pause game', 'Pausar el juego', 'Spiel pausieren', 'Mettre le jeu en pause', 'Pausar o jogo', 'Metti in pausa'],
     ['❚❚ Pause', '❚❚ Pausa', '❚❚ Pause', '❚❚ Pause', '❚❚ Pausar', '❚❚ Pausa'],
@@ -27,9 +22,7 @@
     ["today's shared sky", 'el cielo compartido de hoy', 'der gemeinsame Himmel von heute', 'le ciel partagé du jour', 'o céu compartilhado de hoje', 'il cielo condiviso di oggi'],
     ['done today ✓', 'hecha hoy ✓', 'heute erledigt ✓', 'faite aujourd’hui ✓', 'feita hoje ✓', 'fatto oggi ✓'],
     ['Journey', 'Viaje', 'Reise', 'Parcours', 'Jornada', 'Percorso'],
-    ['0 / 40 stages', '0 / 40 etapas', '0 / 40 Etappen', '0 / 40 étapes', '0 / 40 etapas', '0 / 40 tappe'],
     ['{n} / {total} stages', '{n} / {total} etapas', '{n} / {total} Etappen', '{n} / {total} étapes', '{n} / {total} etapas', '{n} / {total} tappe'],
-    ['More modes and options', 'Más modos y opciones', 'Weitere Modi und Optionen', 'Autres modes et options', 'Mais modos e opções', 'Altre modalità e opzioni'],
     ['Learn', 'Aprender', 'Lernen', 'Apprendre', 'Aprender', 'Impara'],
     ['Practice', 'Práctica', 'Übung', 'Entraînement', 'Treino', 'Allenamento'],
     ['Challenges', 'Desafíos', 'Herausforderungen', 'Défis', 'Desafios', 'Sfide'],
@@ -44,9 +37,7 @@
     ['cloud save synced', 'guardado en la nube sincronizado', 'Cloud-Speicherstand synchronisiert', 'sauvegarde cloud synchronisée', 'salvamento na nuvem sincronizado', 'salvataggio cloud sincronizzato'],
     ['saving…', 'guardando…', 'wird gespeichert …', 'enregistrement…', 'salvando…', 'salvataggio…'],
     ['cloud save offline', 'guardado en la nube sin conexión', 'Cloud-Speicherstand offline', 'sauvegarde cloud hors ligne', 'salvamento na nuvem offline', 'salvataggio cloud offline'],
-    ['(offline)', '(sin conexión)', '(offline)', '(hors ligne)', '(offline)', '(offline)'],
     // ---- setup
-    ['Set sail', 'Despega', 'Abflug', 'Envol', 'Decolar', 'Si parte'],
     ['Rules', 'Reglas', 'Regeln', 'Règles', 'Regras', 'Regole'],
     ['Expected duration', 'Duración estimada', 'Erwartete Dauer', 'Durée prévue', 'Duração estimada', 'Durata prevista'],
     ['Players', 'Jugadores', 'Spieler', 'Joueurs', 'Jogadores', 'Giocatori'],
@@ -69,8 +60,6 @@
     ['Sixty seconds to learn the sky.', 'Sesenta segundos para aprender el cielo.', 'Sechzig Sekunden, um den Himmel kennenzulernen.', 'Soixante secondes pour apprivoiser le ciel.', 'Sessenta segundos para aprender o céu.', 'Sessanta secondi per imparare il cielo.'],
     ['Pick up where you left off.', 'Continúa donde lo dejaste.', 'Mach da weiter, wo du aufgehört hast.', 'Reprenez là où vous vous étiez arrêté.', 'Continue de onde parou.', 'Riprendi da dove avevi lasciato.'],
     ['One shared sky for everyone today.', 'Un cielo compartido por todos hoy.', 'Heute ein gemeinsamer Himmel für alle.', 'Un ciel partagé par tous aujourd’hui.', 'Um céu compartilhado por todos hoje.', 'Un cielo condiviso da tutti oggi.'],
-    ['Synchronized to server time.', 'Sincronizado con la hora del servidor.', 'Mit der Serverzeit synchronisiert.', 'Synchronisé sur l’heure du serveur.', 'Sincronizado com o horário do servidor.', 'Sincronizzato con l’ora del server.'],
-    ['Using local clock (offline).', 'Usando el reloj local (sin conexión).', 'Lokale Uhr (offline).', 'Horloge locale (hors ligne).', 'Usando o relógio local (offline).', 'Orologio locale (offline).'],
     ['Five tiny lessons, one rule at a time.', 'Cinco lecciones mínimas, una regla a la vez.', 'Fünf kleine Lektionen, eine Regel nach der anderen.', 'Cinq petites leçons, une règle à la fois.', 'Cinco lições curtinhas, uma regra de cada vez.', 'Cinque piccole lezioni, una regola alla volta.'],
     ['Free flight. Undo is allowed; nothing is ranked.', 'Vuelo libre. Puedes deshacer; nada cuenta para la clasificación.', 'Freier Flug. Rückgängig ist erlaubt; nichts wird gewertet.', 'Vol libre. L’annulation est permise ; rien n’est classé.', 'Voo livre. Pode desfazer; nada vale ranking.', 'Volo libero. Puoi annullare; niente è classificato.'],
     ['{difficulty} — endless, undo allowed, unranked', '{difficulty} — sin fin, con deshacer, sin clasificación', '{difficulty} — endlos, Rückgängig erlaubt, ohne Wertung', '{difficulty} — sans fin, annulation permise, non classé', '{difficulty} — sem fim, pode desfazer, sem ranking', '{difficulty} — infinito, annullamento consentito, non classificato'],
@@ -137,7 +126,6 @@
     [', cleared, best {score}', ', superada, mejor {score}', ', geschafft, Bestwert {score}', ', terminée, record {score}', ', concluída, recorde {score}', ', completata, record {score}'],
     [', mastery trial', ', prueba de maestría', ', Meisterprüfung', ', épreuve de maîtrise', ', prova de maestria', ', prova di maestria'],
     // ---- countdown, pause
-    ['Get ready', 'Prepárate', 'Mach dich bereit', 'Préparez-vous', 'Prepare-se', 'Preparati'],
     ['{name}. Get ready.', '{name}. Prepárate.', '{name}. Mach dich bereit.', '{name}. Préparez-vous.', '{name}. Prepare-se.', '{name}. Preparati.'],
     ['Flap to take off!', '¡Aletea para despegar!', 'Flattern zum Abheben!', 'Battez des ailes pour décoller !', 'Bata as asas para decolar!', 'Sbatti le ali per decollare!'],
     ['Go!', '¡Ya!', 'Los!', 'Partez !', 'Já!', 'Via!'],
@@ -148,12 +136,10 @@
     ['Restart', 'Reiniciar', 'Neu starten', 'Recommencer', 'Reiniciar', 'Ricomincia'],
     ['Leave round', 'Abandonar ronda', 'Runde verlassen', 'Quitter la manche', 'Sair da rodada', 'Abbandona il volo'],
     // ---- results
-    ['Round over', 'Ronda terminada', 'Runde vorbei', 'Manche terminée', 'Rodada encerrada', 'Volo concluso'],
     ['Clear skies!', '¡Cielo despejado!', 'Freie Bahn!', 'Ciel dégagé !', 'Céu limpo!', 'Cieli sereni!'],
     ['Flight ended', 'Vuelo terminado', 'Flug beendet', 'Vol terminé', 'Voo encerrado', 'Volo finito'],
     ['Stage clear. Score {n}.', 'Etapa superada. Puntuación {n}.', 'Etappe geschafft. Punkte {n}.', 'Étape réussie. Score {n}.', 'Etapa concluída. Pontuação {n}.', 'Tappa completata. Punteggio {n}.'],
     ['Flight ended. Score {n}.', 'Vuelo terminado. Puntuación {n}.', 'Flug beendet. Punkte {n}.', 'Vol terminé. Score {n}.', 'Voo encerrado. Pontuação {n}.', 'Volo finito. Punteggio {n}.'],
-    ['Score breakdown', 'Desglose de puntuación', 'Punkteaufstellung', 'Détail du score', 'Detalhamento da pontuação', 'Dettaglio del punteggio'],
     ['Gates passed', 'Puertas atravesadas', 'Durchflogene Tore', 'Portes passées', 'Portões passados', 'Porte superate'],
     ['Centered bonuses', 'Bonos por centrar', 'Mitte-Boni', 'Bonus de centrage', 'Bônus de centro', 'Bonus centro'],
     ['Streak bonuses', 'Bonos por racha', 'Serien-Boni', 'Bonus de série', 'Bônus de sequência', 'Bonus serie'],
@@ -161,7 +147,6 @@
     ['Total', 'Total', 'Gesamt', 'Total', 'Total', 'Totale'],
     ['best ×{n}', 'mejor ×{n}', 'beste ×{n}', 'meilleure ×{n}', 'melhor ×{n}', 'migliore ×{n}'],
     ['Retry', 'Reintentar', 'Nochmal', 'Rejouer', 'Tentar de novo', 'Riprova'],
-    ['Next stage →', 'Siguiente etapa →', 'Nächste Etappe →', 'Étape suivante →', 'Próxima etapa →', 'Tappa successiva →'],
     ['Next: {name}', 'Siguiente: {name}', 'Weiter: {name}', 'Suivante : {name}', 'Próxima: {name}', 'Prossima: {name}'],
     ['Next lesson', 'Siguiente lección', 'Nächste Lektion', 'Leçon suivante', 'Próxima lição', 'Lezione successiva'],
     ['Menu', 'Menú', 'Menü', 'Menu', 'Menu', 'Menu'],
@@ -198,58 +183,61 @@
     ['Fair play', 'Juego limpio', 'Fairness', 'Fair-play', 'Jogo limpo', 'Fair play'],
     ['Every round is seeded and replayable. Daily skies are identical for everyone on the same UTC day. Assists are declared with your score.', 'Cada ronda tiene semilla y se puede repetir. Los cielos diarios son iguales para todos el mismo día UTC. Las ayudas se declaran junto a tu puntuación.', 'Jede Runde hat einen Seed und lässt sich wiederholen. Tageshimmel sind am selben UTC-Tag für alle gleich. Hilfen werden mit deiner Punktzahl angegeben.', 'Chaque manche a une graine et peut être rejouée. Les ciels du jour sont identiques pour tous le même jour UTC. Les aides sont déclarées avec votre score.', 'Cada rodada tem semente e pode ser repetida. Os céus diários são iguais para todos no mesmo dia UTC. As ajudas aparecem junto com sua pontuação.', 'Ogni volo ha un seme ed è ripetibile. I cieli del giorno sono uguali per tutti nello stesso giorno UTC. Gli aiuti vengono dichiarati insieme al punteggio.'],
     // ---- settings
-    ['Audio', 'Audio', 'Audio', 'Audio', 'Áudio', 'Audio'],
-    ['Music', 'Música', 'Musik', 'Musique', 'Música', 'Musica'],
-    ['Effects', 'Efectos', 'Effekte', 'Effets', 'Efeitos', 'Effetti'],
-    ['Ambience', 'Ambiente', 'Atmosphäre', 'Ambiance', 'Ambiente', 'Ambiente'],
-    ['Cues', 'Señales', 'Signale', 'Signaux', 'Sinais', 'Segnali'],
-    ['Mute all', 'Silenciar todo', 'Alles stumm', 'Tout couper', 'Silenciar tudo', 'Silenzia tutto'],
     ['Display', 'Pantalla', 'Anzeige', 'Affichage', 'Tela', 'Schermo'],
-    ['Reduced motion', 'Movimiento reducido', 'Weniger Bewegung', 'Animations réduites', 'Movimento reduzido', 'Movimento ridotto'],
-    ['High contrast', 'Alto contraste', 'Hoher Kontrast', 'Contraste élevé', 'Alto contraste', 'Alto contrasto'],
     ['Color palette', 'Paleta de colores', 'Farbpalette', 'Palette de couleurs', 'Paleta de cores', 'Tavolozza colori'],
     ['Default', 'Predeterminada', 'Standard', 'Par défaut', 'Padrão', 'Predefinita'],
     ['Deuteranopia-safe', 'Apta para deuteranopía', 'Für Deuteranopie', 'Adaptée à la deutéranopie', 'Para deuteranopia', 'Adatta alla deuteranopia'],
     ['Protanopia-safe', 'Apta para protanopía', 'Für Protanopie', 'Adaptée à la protanopie', 'Para protanopia', 'Adatta alla protanopia'],
     ['Tritanopia-safe', 'Apta para tritanopía', 'Für Tritanopie', 'Adaptée à la tritanopie', 'Para tritanopia', 'Adatta alla tritanopia'],
     ['Accessibility & controls', 'Accesibilidad y controles', 'Barrierefreiheit & Steuerung', 'Accessibilité et commandes', 'Acessibilidade e controles', 'Accessibilità e comandi'],
-    ['Larger text', 'Texto más grande', 'Größerer Text', 'Texte plus grand', 'Texto maior', 'Testo più grande'],
     ['Left-handed layout', 'Diseño para zurdos', 'Linkshänder-Layout', 'Disposition pour gauchers', 'Layout para canhotos', 'Layout per mancini'],
     ['Predicted flight arc (timing assist)', 'Arco de vuelo previsto (ayuda de ritmo)', 'Vorhergesagte Flugbahn (Timing-Hilfe)', 'Arc de vol prévu (aide au rythme)', 'Arco de voo previsto (ajuda de ritmo)', 'Arco di volo previsto (aiuto al tempismo)'],
     ['Haptics on supported devices', 'Vibración en dispositivos compatibles', 'Haptik auf unterstützten Geräten', 'Retour haptique sur les appareils compatibles', 'Vibração em dispositivos compatíveis', 'Vibrazione sui dispositivi supportati'],
     ['Replay tutorial', 'Repetir tutorial', 'Tutorial wiederholen', 'Revoir le tutoriel', 'Repetir tutorial', 'Rivedi il tutorial'],
-    ['Graphics', 'Gráficos', 'Grafik', 'Graphismes', 'Gráficos', 'Grafica'],
     // ---- leaderboards
-    ['Board filter', 'Filtro de clasificación', 'Listenfilter', 'Filtre du classement', 'Filtro do placar', 'Filtro classifica'],
     ['Global', 'Global', 'Global', 'Mondial', 'Global', 'Globale'],
     ['Friends', 'Amigos', 'Freunde', 'Amis', 'Amigos', 'Amici'],
     ['This device', 'Este dispositivo', 'Dieses Gerät', 'Cet appareil', 'Este dispositivo', 'Questo dispositivo'],
     ['No scores yet — be the first breeze.', 'Aún no hay puntuaciones: sé la primera brisa.', 'Noch keine Punkte — sei die erste Brise.', 'Aucun score pour l’instant — soyez la première brise.', 'Ainda não há pontuações — seja a primeira brisa.', 'Ancora nessun punteggio: sii la prima brezza.'],
     ['Pilot', 'Piloto', 'Pilot', 'Pilote', 'Piloto', 'Pilota'],
     ['You ({name})', 'Tú ({name})', 'Du ({name})', 'Vous ({name})', 'Você ({name})', 'Tu ({name})'],
-    ['Player {id}', 'Jugador {id}', 'Spieler {id}', 'Joueur {id}', 'Jogador {id}', 'Giocatore {id}'],
-    ['player', 'jugador', 'Spieler', 'joueur', 'jogador', 'giocatore'],
     ['Scores from this device. Casual — verified boards require sign-in.', 'Puntuaciones de este dispositivo. Informales: las clasificaciones verificadas requieren iniciar sesión.', 'Punkte von diesem Gerät. Locker — geprüfte Listen erfordern eine Anmeldung.', 'Scores de cet appareil. Pour le plaisir — les classements vérifiés exigent une connexion.', 'Pontuações deste dispositivo. Informais — placares verificados exigem login.', 'Punteggi di questo dispositivo. Informali: le classifiche verificate richiedono l’accesso.'],
     ['Board unavailable right now — showing local scores.', 'Clasificación no disponible por ahora: se muestran las puntuaciones locales.', 'Liste gerade nicht verfügbar — lokale Punkte werden gezeigt.', 'Classement indisponible pour l’instant — scores locaux affichés.', 'Placar indisponível agora — mostrando pontuações locais.', 'Classifica non disponibile ora: mostro i punteggi locali.'],
     ["Offline — showing this device's scores. Sign in for global boards.", 'Sin conexión: se muestran las puntuaciones de este dispositivo. Inicia sesión para ver las clasificaciones globales.', 'Offline — Punkte dieses Geräts. Melde dich für globale Listen an.', 'Hors ligne — scores de cet appareil. Connectez-vous pour les classements mondiaux.', 'Offline — mostrando as pontuações deste dispositivo. Entre para ver os placares globais.', 'Offline: punteggi di questo dispositivo. Accedi per le classifiche globali.'],
     ['Friends only — high scores from Daily Breeze and Score Chase.', 'Solo amigos: mejores puntuaciones de Brisa diaria y Caza de puntos.', 'Nur Freunde — Bestwerte aus Tagesbrise und Punktejagd.', 'Amis seulement — meilleurs scores de la Brise du jour et de la Chasse aux points.', 'Só amigos — melhores pontuações da Brisa diária e da Caça aos pontos.', 'Solo amici: migliori punteggi di Brezza del giorno e Caccia al punteggio.'],
     ['High scores from Daily Breeze and Score Chase.', 'Mejores puntuaciones de Brisa diaria y Caza de puntos.', 'Bestwerte aus Tagesbrise und Punktejagd.', 'Meilleurs scores de la Brise du jour et de la Chasse aux points.', 'Melhores pontuações da Brisa diária e da Caça aos pontos.', 'Migliori punteggi di Brezza del giorno e Caccia al punteggio.'],
     // ---- conflict, compat, away, errors
-    ['Two progress saves found', 'Se encontraron dos partidas guardadas', 'Zwei Spielstände gefunden', 'Deux sauvegardes trouvées', 'Dois salvamentos encontrados', 'Trovati due salvataggi'],
-    ['Your device and the cloud both have progress that neither contains entirely. Both are kept — pick which one to continue with. Nothing is deleted.', 'Tu dispositivo y la nube tienen progresos que ninguno contiene por completo. Se conservan ambos: elige con cuál continuar. No se borra nada.', 'Dein Gerät und die Cloud haben jeweils Fortschritt, den der andere nicht ganz enthält. Beide bleiben erhalten — wähle, womit du weitermachst. Nichts wird gelöscht.', 'Votre appareil et le cloud ont chacun une progression que l’autre ne contient pas entièrement. Les deux sont conservées — choisissez avec laquelle continuer. Rien n’est supprimé.', 'Seu dispositivo e a nuvem têm progressos que nenhum dos dois contém por inteiro. Os dois são mantidos — escolha com qual continuar. Nada é apagado.', 'Il dispositivo e il cloud hanno progressi che nessuno dei due contiene per intero. Vengono tenuti entrambi: scegli con quale continuare. Non si cancella nulla.'],
-    ['Keep this device', 'Mantener este dispositivo', 'Dieses Gerät behalten', 'Garder cet appareil', 'Manter este dispositivo', 'Tieni questo dispositivo'],
-    ['Keep cloud', 'Mantener la nube', 'Cloud behalten', 'Garder le cloud', 'Manter a nuvem', 'Tieni il cloud'],
-    ['Merge both', 'Combinar ambos', 'Beide zusammenführen', 'Fusionner les deux', 'Mesclar os dois', 'Unisci entrambi'],
-    ['3D unavailable', '3D no disponible', '3D nicht verfügbar', '3D indisponible', '3D indisponível', '3D non disponibile'],
-    ['Breeze Wing needs WebGL for its storybook sky. Your progress and account are safe — try updating your browser or enabling hardware acceleration, then reload.', 'Breeze Wing necesita WebGL para su cielo de cuento. Tu progreso y tu cuenta están a salvo: prueba a actualizar el navegador o activar la aceleración por hardware y vuelve a cargar.', 'Breeze Wing braucht WebGL für seinen Bilderbuchhimmel. Fortschritt und Konto sind sicher — aktualisiere den Browser oder aktiviere die Hardwarebeschleunigung und lade neu.', 'Breeze Wing a besoin de WebGL pour son ciel de livre d’images. Votre progression et votre compte sont en sécurité — mettez à jour le navigateur ou activez l’accélération matérielle, puis rechargez.', 'Breeze Wing precisa de WebGL para seu céu de livro ilustrado. Seu progresso e sua conta estão seguros — atualize o navegador ou ative a aceleração de hardware e recarregue.', 'Breeze Wing ha bisogno di WebGL per il suo cielo da libro illustrato. Progressi e account sono al sicuro: aggiorna il browser o attiva l’accelerazione hardware, poi ricarica.'],
-    ['Try again', 'Reintentar', 'Erneut versuchen', 'Réessayer', 'Tentar de novo', 'Riprova'],
     ['Welcome back', 'Bienvenido de nuevo', 'Willkommen zurück', 'Bon retour', 'Bem-vindo de volta', 'Bentornato'],
     ['While you were away: your {name} flight was kept safe — {gates} gates, score {score}, {secs}s in. The sky waited for you.', 'Mientras no estabas: tu vuelo de {name} quedó a salvo — {gates} puertas, puntuación {score}, {secs} s de vuelo. El cielo te esperó.', 'Während du weg warst, blieb dein Flug {name} gesichert — {gates} Tore, {score} Punkte, {secs} s geflogen. Der Himmel hat auf dich gewartet.', 'Pendant votre absence, votre vol {name} a été mis à l’abri — {gates} portes, score {score}, {secs} s de vol. Le ciel vous a attendu.', 'Enquanto você esteve fora, seu voo de {name} ficou guardado — {gates} portões, pontuação {score}, {secs} s de voo. O céu esperou por você.', 'Mentre eri via, il tuo volo {name} è stato messo al sicuro: {gates} porte, punteggio {score}, {secs} s di volo. Il cielo ti ha aspettato.'],
     ['Continue flight', 'Continuar el vuelo', 'Flug fortsetzen', 'Reprendre le vol', 'Continuar o voo', 'Continua il volo'],
     ['Start over', 'Empezar de nuevo', 'Neu beginnen', 'Recommencer', 'Começar de novo', 'Ricomincia da capo'],
-    ['Save data was corrupted; a fresh profile was created.', 'Los datos guardados estaban dañados; se creó un perfil nuevo.', 'Der Spielstand war beschädigt; ein neues Profil wurde angelegt.', 'La sauvegarde était corrompue ; un nouveau profil a été créé.', 'Os dados salvos estavam corrompidos; um novo perfil foi criado.', 'Il salvataggio era danneggiato; è stato creato un nuovo profilo.'],
-    ['Playing offline — progress stays on this device.', 'Jugando sin conexión: el progreso se queda en este dispositivo.', 'Offline-Spiel — der Fortschritt bleibt auf diesem Gerät.', 'Partie hors ligne — la progression reste sur cet appareil.', 'Jogando offline — o progresso fica neste dispositivo.', 'Gioco offline: i progressi restano su questo dispositivo.'],
-    ['Something went wrong starting Breeze Wing. Please reload.', 'Algo salió mal al iniciar Breeze Wing. Vuelve a cargar la página.', 'Beim Start von Breeze Wing ist etwas schiefgelaufen. Bitte neu laden.', 'Un problème est survenu au démarrage de Breeze Wing. Rechargez la page.', 'Algo deu errado ao iniciar o Breeze Wing. Recarregue a página.', 'Qualcosa è andato storto all’avvio di Breeze Wing. Ricarica la pagina.'],
+    // ---- StarHermit account and leaderboard lines
+    ["Guest","Invitado","Gast","Invité","Convidado","Ospite"],
+    ["Invite link copied to the clipboard.","Enlace de invitación copiado al portapapeles.","Einladungslink in die Zwischenablage kopiert.","Lien d’invitation copié dans le presse-papiers.","Link de convite copiado para a área de transferência.","Link di invito copiato negli appunti."],
+    ["Could not copy the invite link.","No se pudo copiar el enlace de invitación.","Einladungslink konnte nicht kopiert werden.","Impossible de copier le lien d’invitation.","Não foi possível copiar o link de convite.","Impossibile copiare il link di invito."],
+    ["Signed out of StarHermit — progress stays on this device.","Sesión de StarHermit cerrada: el progreso se queda en este dispositivo.","Von StarHermit abgemeldet – der Fortschritt bleibt auf diesem Gerät.","Déconnecté de StarHermit : la progression reste sur cet appareil.","Você saiu da StarHermit — o progresso continua neste dispositivo.","Disconnesso da StarHermit: i progressi restano su questo dispositivo."],
+    ["Posting score to the leaderboard…","Enviando la puntuación a la clasificación…","Punktzahl wird an die Bestenliste gesendet …","Envoi du score au classement…","Enviando a pontuação para o placar…","Invio del punteggio alla classifica…"],
+    ["Leaderboard rank: #{rank}","Puesto en la clasificación: #{rank}","Platz in der Bestenliste: #{rank}","Rang au classement : #{rank}","Posição no placar: #{rank}","Posizione in classifica: #{rank}"],
+    ["Score posted to the leaderboard.","Puntuación enviada a la clasificación.","Punktzahl in die Bestenliste eingetragen.","Score envoyé au classement.","Pontuação enviada ao placar.","Punteggio inviato alla classifica."],
+    ["Score not posted to the leaderboard.","La puntuación no se envió a la clasificación.","Punktzahl wurde nicht in die Bestenliste eingetragen.","Score non envoyé au classement.","A pontuação não foi enviada ao placar.","Punteggio non inviato alla classifica."],
+    // ---- settings: the runtime's Options
+    ["Sound, graphics, language, controls, text size, high contrast and reduced motion are in the StarHermit Options.","El sonido, los gráficos, el idioma, los controles, el tamaño del texto, el alto contraste y el movimiento reducido están en las Opciones de StarHermit.","Ton, Grafik, Sprache, Steuerung, Textgröße, hoher Kontrast und reduzierte Bewegung findest du in den StarHermit-Optionen.","Le son, les graphismes, la langue, les commandes, la taille du texte, le contraste élevé et les animations réduites se trouvent dans les Options de StarHermit.","Som, gráficos, idioma, controles, tamanho do texto, alto contraste e movimento reduzido ficam nas Opções da StarHermit.","Audio, grafica, lingua, comandi, dimensione del testo, alto contrasto e movimento ridotto sono nelle Opzioni di StarHermit."],
+    ["Open Options","Abrir Opciones","Optionen öffnen","Ouvrir les Options","Abrir Opções","Apri Opzioni"],
+    // ---- sound captions
+    ["[whoosh]","[zumbido]","[Wusch]","[souffle]","[vuuush]","[fruscio]"],
+    ["[chime: gate passed]","[campanilla: puerta superada]","[Glöckchen: Tor passiert]","[carillon : porte passée]","[sino: portão superado]","[campanello: porta superata]"],
+    ["[bright chime: centered pass]","[campanilla brillante: paso al centro]","[heller Klang: mittig durch]","[carillon vif : passage centré]","[sino brilhante: passagem no centro]","[campanello brillante: passaggio centrato]"],
+    ["[fanfare: stage clear]","[fanfarria: etapa superada]","[Fanfare: Etappe geschafft]","[fanfare : étape réussie]","[fanfarra: etapa concluída]","[fanfara: tappa superata]"],
+    ["[jingle: time up]","[melodía: se acabó el tiempo]","[Melodie: Zeit um]","[jingle : temps écoulé]","[vinheta: tempo esgotado]","[jingle: tempo scaduto]"],
+    ["[thud: flight ended]","[golpe sordo: vuelo terminado]","[dumpfer Schlag: Flug beendet]","[bruit sourd : vol terminé]","[baque: voo encerrado]","[tonfo: volo finito]"],
+    ["[low buzz: action unavailable]","[zumbido grave: acción no disponible]","[tiefes Summen: Aktion nicht verfügbar]","[bourdonnement grave : action indisponible]","[zumbido grave: ação indisponível]","[ronzio basso: azione non disponibile]"],
+    ["[beep]","[pitido]","[Piep]","[bip]","[bipe]","[bip]"],
+    ["[beep: go]","[pitido: ¡ya!]","[Piep: los]","[bip : partez]","[bipe: já]","[bip: via]"],
+    ["[sparkle: achievement unlocked]","[destello: logro desbloqueado]","[Funkeln: Erfolg freigeschaltet]","[scintillement : succès débloqué]","[brilho: conquista desbloqueada]","[scintillio: obiettivo sbloccato]"],
+    ["[rising tone: takeoff]","[tono ascendente: despegue]","[steigender Ton: Abflug]","[son montant : décollage]","[tom ascendente: decolagem]","[suono crescente: decollo]"],
+    ["[soft rewind]","[rebobinado suave]","[sanftes Zurückspulen]","[rembobinage doux]","[retrocesso suave]","[riavvolgimento leggero]"],
+    ["[rising bells: streak {n}]","[campanas ascendentes: racha {n}]","[steigende Glocken: Serie {n}]","[cloches montantes : série {n}]","[sinos ascendentes: sequência {n}]","[campane crescenti: serie {n}]"],
+    ["[warm sting: new personal best]","[acorde cálido: nuevo récord personal]","[warmer Akzent: neue Bestleistung]","[accord chaleureux : nouveau record personnel]","[acorde caloroso: novo recorde pessoal]","[accordo caldo: nuovo record personale]"],
     // ---- play events
     ['Gate {n}. Score {score}.', 'Puerta {n}. Puntuación {score}.', 'Tor {n}. Punkte {score}.', 'Porte {n}. Score {score}.', 'Portão {n}. Pontuação {score}.', 'Porta {n}. Punteggio {score}.'],
     ['Centered! Streak {n}.', '¡Al centro! Racha {n}.', 'Mittig! Serie {n}.', 'Centré ! Série {n}.', 'No centro! Sequência {n}.', 'Centrato! Serie {n}.'],
@@ -267,6 +255,7 @@
   ROWS.forEach(function (row) { COLS.forEach(function (loc, i) { T[loc][row[0]] = row[i + 1]; }); });
 
   T['en-GB'] = {
+    '[bright chime: centered pass]': '[bright chime: centred pass]',
     'Color palette': 'Colour palette',
     'Passing near the center of a gap earns bonus points and builds a streak.': 'Passing near the centre of a gap earns bonus points and builds a streak.',
     'True Center': 'True Centre',
@@ -277,17 +266,19 @@
     'Score 5 centered passes in a single run of 8 gates.': 'Score 5 centred passes in a single run of 8 gates.'
   };
   T['es-ES'] = {
+    'Invite link copied to the clipboard.': 'Enlace de invitación copiado en el portapapeles.',
+    'Score not posted to the leaderboard.': 'La puntuación no se ha enviado a la clasificación.',
     'Press Space, click, or tap to flap. Flap once to take off!': 'Pulsa Espacio, haz clic o toca para aletear. ¡Aletea una vez para despegar!',
     'Gamepad': 'Mando',
     '<kbd>A</kbd>/<kbd>Cross</kbd> flaps, <kbd>Start</kbd> pauses, shoulder buttons and D-pad navigate menus.': '<kbd>A</kbd>/<kbd>Cruz</kbd> aletea, <kbd>Start</kbd> pausa, los gatillos y la cruceta recorren los menús del mando.',
     'menus work with <kbd>Tab</kbd> and <kbd>Enter</kbd>.': 'los menús funcionan con <kbd>Tab</kbd> e <kbd>Intro</kbd>.',
     'Welcome back': 'Te damos la bienvenida de nuevo',
-    'Breeze Wing needs WebGL for its storybook sky. Your progress and account are safe — try updating your browser or enabling hardware acceleration, then reload.': 'Breeze Wing necesita WebGL para su cielo de cuento. Tu progreso y tu cuenta están a salvo: actualiza el navegador o activa la aceleración por hardware y vuelve a cargar.',
     'Ranked round — replay recorded for verification.': 'Ronda clasificatoria: la repetición se guarda para comprobarla.'
   };
   T['fr-CA'] = {
-    'Score': 'Pointage',
-    'Score breakdown': 'Détail du pointage',
+    'Posting score to the leaderboard…': 'Envoi du pointage au classement…',
+    'Score posted to the leaderboard.': 'Pointage envoyé au classement.',
+    'Score not posted to the leaderboard.': 'Pointage non envoyé au classement.',
     'Scoring': 'Pointage',
     'Stage clear. Score {n}.': 'Étape réussie. Pointage {n}.',
     'Flight ended. Score {n}.': 'Vol terminé. Pointage {n}.',
@@ -298,5 +289,4 @@
     'No scores yet — be the first breeze.': 'Aucun pointage pour l’instant — soyez la première brise.'
   };
 
-  root.BW_STRINGS = T;
-})(typeof self !== 'undefined' ? self : this);
+export const STRINGS = T;

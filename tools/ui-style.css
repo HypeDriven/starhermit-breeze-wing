@@ -1,0 +1,154 @@
+/* Breeze Wing — the browser client's style sheet (css/style.css), kept for the
+ * engine port and rewritten class-based for `starhermit css` (`npm run css`
+ * converts it into assets/ui-style.json, which native/style.ts registers):
+ * ids, element selectors (h1, h2, h3, kbd, dt, dd, th, td, legend, li) and
+ * compound selectors (.jstage.done, .btn-card span, .breakdown .total) became
+ * classes of their own; the media queries, safe-area insets, the ui-scale
+ * zoom, the body classes (palette, high contrast, larger text, reduced
+ * motion, left-handed), the graphics panel, the fps meter and the panels'
+ * backdrop blur are gone: the runtime gives interface size, text size, high
+ * contrast, reduced motion and graphics, native/style.ts swaps the palette
+ * tokens, and native/screens.ts picks the layouts (centred cards, bottom
+ * sheets at ≤ 700 px, the short-landscape sizes) by window size. */
+* { box-sizing: border-box; }
+:root {
+  --ink: #1d2733;
+  --ink-soft: #44566b;
+  --paper: rgba(255, 252, 246, 0.94);
+  --paper-solid: #fffcf6;
+  --accent: #d94f2b;
+  --accent-2: #2f7fd0;
+  --accent-hover: #e3613d;
+  --focus: #ffb43c;
+  --on-accent: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f2f7ff;
+  --line: rgba(30, 45, 70, 0.18);
+  --line-soft: rgba(30, 45, 70, 0.12);
+  --done: #e6f6e2;
+  --done-line: #58a24c;
+  --gold-bg: #fff6dd;
+  --gold-line: #e8c860;
+  --radius: 16px;
+  font-size: 16px;
+}
+
+/* ---------- screens and panels ---------- */
+.screen { background: rgba(30, 45, 70, 0.25); }
+.panel {
+  background: var(--paper); border-radius: var(--radius);
+  padding: 22px 26px; color: var(--ink);
+  box-shadow: 0 12px 40px rgba(20, 30, 50, 0.35);
+}
+.panel-sheet { border-radius: 16px 16px 0 0; }
+.panel-compact { padding: 14px 18px; }
+.h2 { font-size: 1.5rem; font-weight: 700; color: var(--ink); }
+.h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.blurb { color: var(--ink-soft); }
+.body-text { color: var(--ink); }
+
+/* ---------- title ---------- */
+.game-logo { font-size: 2.6rem; font-weight: 700; color: var(--ink); }
+.game-logo-accent { font-size: 2.6rem; font-weight: 700; color: var(--accent); }
+.game-logo-compact { font-size: 1.8rem; }
+.tagline { color: var(--ink-soft); }
+.profile-chip { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* ---------- buttons: ≥ 44 px targets, 8 px separation ---------- */
+.btn {
+  font-weight: 600; color: var(--ink);
+  background: var(--card); border: 2px solid var(--line);
+  border-radius: 12px; padding: 10px 16px; min-height: 44px; min-width: 44px;
+  text-align: center;
+  transition: background 0.15s;
+}
+.btn:hover { background: var(--card-hover); }
+.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-big { font-size: 1.3rem; padding: 14px 42px; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn-ghost:hover { background: rgba(30, 45, 70, 0.08); }
+.btn-card { padding: 10px 12px; }
+.btn-card-title { font-weight: 700; color: var(--ink); }
+.btn-card-sub { font-weight: 400; font-size: 0.8rem; color: var(--ink-soft); }
+.btn-tab.active { border-color: var(--accent-2); color: var(--accent-2); }
+.setup-option { text-align: left; }
+.setup-option.active { border-color: var(--accent-2); }
+.setup-option-title { font-weight: 700; color: var(--ink); }
+.setup-option-sub { font-weight: 400; font-size: 0.85rem; color: var(--ink-soft); }
+
+/* ---------- setup facts ---------- */
+.fact-dt { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+.fact-dd { color: var(--ink); }
+
+/* ---------- journey grid ---------- */
+.jstage {
+  text-align: center;
+  font-weight: 700; color: var(--ink); border-radius: 12px;
+  border: 2px solid rgba(30, 45, 70, 0.15); background: var(--card); padding: 4px;
+}
+.jstage:hover { background: var(--card-hover); }
+.jstage:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.jstage-mastery { border-width: 3px; border-color: rgba(30, 45, 70, 0.4); }
+.jstage-done { background: var(--done); border-color: var(--done-line); }
+.jstage-done:hover { background: var(--done); }
+.jstage-current { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(217, 79, 43, 0.25); }
+.jstage-sub { font-weight: 400; font-size: 0.7rem; color: var(--ink-soft); }
+
+/* ---------- countdown ---------- */
+.countdown { font-size: 6rem; font-weight: 800; color: #ffffff; text-shadow: 0 4px 24px rgba(20, 30, 50, 0.5); }
+.countdown-compact { font-size: 4rem; }
+.countdown-prompt { font-size: 1.2rem; font-weight: 600; color: #ffffff; text-shadow: 0 2px 10px rgba(20, 30, 50, 0.6); text-align: center; }
+
+/* ---------- play HUD ---------- */
+.hud-objective { font-weight: 700; font-size: 0.95rem; color: var(--ink); text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8); }
+.hud-progress { font-size: 0.85rem; color: var(--ink-soft); text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8); }
+.hud-score { font-size: 2.2rem; font-weight: 800; color: var(--ink); text-shadow: 0 2px 6px rgba(255, 255, 255, 0.8); }
+.hud-score-compact { font-size: 1.7rem; }
+.hud-score-short { font-size: 1.4rem; }
+.hud-streak { font-weight: 700; color: var(--accent); text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8); }
+.hud-btn { background: rgba(255, 252, 246, 0.55); border-color: transparent; color: var(--ink); }
+.hud-btn:hover { background: rgba(255, 252, 246, 0.85); }
+.tap-hint {
+  background: var(--paper); padding: 8px 18px; border-radius: 999px;
+  font-weight: 600; color: var(--ink); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  animation: hintPulse 1.6s ease-in-out infinite;
+}
+@keyframes hintPulse { 50% { transform: scale(1.06); } }
+
+/* ---------- captions and toast ---------- */
+.captions { background: rgba(0, 0, 0, 0.65); color: #ffffff; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; text-align: center; }
+.toast { background: var(--ink); color: #ffffff; padding: 10px 20px; border-radius: 22px; font-weight: 600; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); text-align: center; }
+
+/* ---------- results ---------- */
+.bd-th { font-weight: 600; color: var(--ink); padding: 6px 4px; }
+.bd-td { color: var(--ink); padding: 6px 4px; }
+.bd-pts { font-weight: 700; color: var(--ink); padding: 6px 4px; text-align: right; }
+.bd-total { font-weight: 700; font-size: 1.15rem; color: var(--ink); padding: 6px 4px; }
+.bd-total-row { border-top: 2px solid rgba(30, 45, 70, 0.25); }
+.earned { margin: 4px 0; padding: 10px; background: var(--gold-bg); border: 2px solid var(--gold-line); border-radius: 12px; font-weight: 600; color: var(--ink); }
+
+/* ---------- help ---------- */
+.rule-card { background: var(--card); border: 2px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; }
+.rule-h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.rule-p { font-size: 0.92rem; color: var(--ink); }
+.kbd { background: #eef2f7; border: 1px solid #c8d2dd; border-radius: 6px; padding: 1px 6px; font-size: 0.85rem; color: var(--ink); }
+
+/* ---------- settings ---------- */
+.fieldset { border: 2px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; }
+.legend { font-weight: 700; color: var(--ink); }
+
+/* ---------- achievements ---------- */
+.ach-item { background: var(--card); border: 2px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; }
+.ach-item-unlocked { border-color: var(--done-line); background: #f0faed; }
+.ach-name { font-weight: 700; color: var(--ink); }
+.ach-desc { color: var(--ink-soft); font-size: 0.9rem; }
+.ach-date { font-size: 0.75rem; color: var(--ink-soft); }
+
+/* ---------- leaderboards ---------- */
+.board-row { padding: 6px 4px; color: var(--ink); }
+.board-you { font-weight: 800; color: var(--accent); padding: 6px 4px; }
+.captions-text { color: #ffffff; font-size: 0.85rem; text-align: center; }
+.toast-text { color: #ffffff; font-weight: 600; text-align: center; }
