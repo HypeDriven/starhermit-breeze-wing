@@ -582,7 +582,7 @@ function updateEnvironment(): void {
       const dot = dx * sd.x + y * sd.y + dz * sd.z;
       if (dot > 0.985) { r = sunC.r * 6; g = sunC.g * 6; b = sunC.b * 6; }
       const o = (row * w + c) * 4;
-      px[o] = r; px[o + 1] = g; px[o + 2] = b; px[o + 3] = 1;
+      px[o] = Math.max(0, r); px[o + 1] = Math.max(0, g); px[o + 2] = Math.max(0, b); px[o + 3] = 1;
     }
   }
   try {
