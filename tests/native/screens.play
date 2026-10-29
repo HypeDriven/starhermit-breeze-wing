@@ -15,7 +15,11 @@ until 60 Play
 frames 10
 click Leaderboards
 until 60 This device
-frames 30
+# The global board settles either way before the tab is clicked (a late answer
+# re-centres the screen under the click): "High scores from ..." online,
+# "Board unavailable ... showing local scores." offline; both say "scores".
+until 600 scores
+frames 10
 click This device
 until 60 Scores from this device.
 expect No scores yet — be the first breeze.
