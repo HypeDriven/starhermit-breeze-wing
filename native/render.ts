@@ -13,9 +13,13 @@
 //   noise, cirrus, stars, aurora and glints); the glazed pillars'
 //   onBeforeCompile tile courses are a WGSL surface hook.
 // - Image-based lighting: the browser build rendered a sky-only scene
-//   through PMREMGenerator.fromScene (only a RoomEnvironment is accepted
-//   here); the same theme gradient and HDR sun are written into a small
+//   (its sky ShaderMaterial and an HDR sun disc) through
+//   PMREMGenerator.fromScene; fromScene draws no custom programs, so the
+//   same theme gradient and HDR sun are written into a small
 //   latitude-longitude image and prefiltered with fromEquirectangular.
+//   Each standard material gets it as its own envMap at the page's
+//   envMapIntensity (r160 scaled scene.environment per material; the
+//   engine, like r163+, does not).
 // - flatShading (islands, plain clouds) is non-indexed geometry with face
 //   normals; IcosahedronGeometry (cloud puffs) is a low-segment sphere;
 //   MeshPhysicalMaterial's sheen is not drawn (its clearcoat is).
@@ -23,16 +27,15 @@
 //   ShaderPass, SMAA / FXAA / canvas MSAA) is renderer.bloom / grade /
 //   antialias; the grade's GLSL is the built-in display-space grade with
 //   the same curve, saturation, tints and vignette.
-// - The key light's fitted orthographic shadow box is the engine's
-//   view-based directional shadow (`shadow.distance`).
-// - Light intensities are three.js r160's divided by π (the engine's
-//   convention). The particles' soft dot is a DataTexture.
+// - Lights, the key light's fitted orthographic shadow box and its biases
+//   are the page's own (three r160 units, engine.minor 28). The particles'
+//   soft dot is a DataTexture (sRGB, as the page's CanvasTexture).
 import {
   ACESFilmicToneMapping, AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CircleGeometry, Color,
   ConeGeometry, CylinderGeometry, DataTexture, DirectionalLight, FloatType, Fog, Group, HemisphereLight, Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator,
+  MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator,
   PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RGBAFormat, ShaderMaterial, SphereGeometry, Sprite,
-  SpriteMaterial, Vector3, renderer, scene,
+  SRGBColorSpace, SpriteMaterial, Vector3, renderer, scene,
 } from "starhermit:scene";
 import type { Material, MaterialHooks, Texture } from "starhermit:scene";
 import { WORLD, gateGapY, currentGapHalf, currentSpeed, SIM_DT, createRng } from "../js/rules.js";
@@ -68,12 +71,15 @@ let envSeed = 1;
 let fxSeed = 22222;
 
 // --- lights ---------------------------------------------------------------------------
-const keyLight = new DirectionalLight(0xffffff, 2.2 / PI);
+const keyLight = new DirectionalLight(0xffffff, 2.2);
+{
+  const sc = keyLight.shadow.camera as OrthographicCamera;
+  sc.left = -15; sc.right = 15; sc.top = 13; sc.bottom = -13; sc.near = 10; sc.far = 80;
+  sc.updateProjectionMatrix();
+}
 keyLight.shadow.bias = -0.0006;
-keyLight.shadow.normalBias = 1;
-keyLight.shadow.radius = 2;
-keyLight.shadow.distance = 34;
-const hemi = new HemisphereLight(0xbfd8ff, 0x8a7a68, 0.9 / PI);
+keyLight.shadow.normalBias = 0.02;
+const hemi = new HemisphereLight(0xbfd8ff, 0x8a7a68, 0.9);
 
 // --- the sky dome and the sea (WGSL ports of SKY_FRAG / SEA_FRAG) ------------------------
 const NOISE = `
@@ -186,6 +192,7 @@ function dotTexture(): DataTexture {
     }
   }
   dotTex = new DataTexture(px, n, n);
+  dotTex.colorSpace = SRGBColorSpace;
   return dotTex;
 }
 const sunMat = new MeshBasicMaterial({ color: 0xfff6d8, fog: false, transparent: true, opacity: 0.9 });
@@ -208,8 +215,13 @@ const ghostGroup = new Group();
 type Lit = MeshStandardMaterial | MeshLambertMaterial;
 interface StdParams { color: number | Color; roughness?: number; metalness?: number; emissive?: number | Color; emissiveIntensity?: number; vertexColors?: boolean; envMapIntensity?: number }
 /** Lit material for the preset budget: Lambert on Low, PBR Standard above (as js/render.js _std/_env). */
+/** The page's per-material reflections: the sky environment as the material's own envMap. */
+function withEnv<M extends MeshStandardMaterial>(m: M): M {
+  m.envMap = look?.reflections ? envTex : null;
+  return m;
+}
 function std(p: StdParams): Lit {
-  if (look!.budget.material !== "lambert") return new MeshStandardMaterial({ envMapIntensity: 0.4, ...p });
+  if (look!.budget.material !== "lambert") return withEnv(new MeshStandardMaterial({ envMapIntensity: 0.4, ...p }));
   const { roughness: _r, metalness: _m, envMapIntensity: _e, ...rest } = p;
   void _r; void _m; void _e;
   return new MeshLambertMaterial(rest);
@@ -240,8 +252,8 @@ function buildBird(): void {
   const physical = detailed && look!.budget.material !== "lambert";
   if (physical) {
     // The browser build's feather sheen (not drawn here) over a soft PBR body.
-    birdMat = new MeshPhysicalMaterial({ color: t.bird, roughness: 0.55, metalness: 0, envMapIntensity: 0.45 });
-    wingMat = new MeshPhysicalMaterial({ color: t.wing, roughness: 0.5, metalness: 0, envMapIntensity: 0.45 });
+    birdMat = withEnv(new MeshPhysicalMaterial({ color: t.bird, roughness: 0.55, metalness: 0, envMapIntensity: 0.45 }));
+    wingMat = withEnv(new MeshPhysicalMaterial({ color: t.wing, roughness: 0.5, metalness: 0, envMapIntensity: 0.45 }));
   } else {
     birdMat = std({ color: t.bird, roughness: 0.6, metalness: 0.05, envMapIntensity: 0.4 });
     wingMat = std({ color: t.wing, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.4 });
@@ -252,7 +264,7 @@ function buildBird(): void {
   const head = shadowed(new Mesh(new SphereGeometry(0.3, 18, 14), birdMat));
   head.position.set(0.38, 0.24, 0);
   const beakMat: Material = physical
-    ? new MeshPhysicalMaterial({ color: 0xff9d3c, roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.25, envMapIntensity: 0.6 })
+    ? withEnv(new MeshPhysicalMaterial({ color: 0xff9d3c, roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.25, envMapIntensity: 0.6 }))
     : std({ color: 0xff9d3c, roughness: 0.5, envMapIntensity: 0.4 });
   const beak = new Mesh(new ConeGeometry(0.11, 0.3, 10), beakMat);
   beak.rotation.z = -PI / 2;
@@ -341,10 +353,10 @@ let trimGeo: BufferGeometry | null = null;
 function gateBodyMaterial(): Material {
   const t = theme;
   if (!look!.detailed || look!.budget.material === "lambert") return std({ color: t.gate, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.45 });
-  const m = new MeshPhysicalMaterial({
+  const m = withEnv(new MeshPhysicalMaterial({
     color: t.gate, roughness: 0.62, metalness: 0, envMapIntensity: 0.55,
     clearcoat: look!.reflections ? 0.55 : 0, clearcoatRoughness: 0.3,
-  });
+  }));
   m.hooks = TILE_HOOK;
   return m;
 }
@@ -560,9 +572,9 @@ let envKey = "";
 /** The theme's sky gradient and HDR sun as a latitude-longitude image, prefiltered (the browser
  * build's sky-only PMREM scene). */
 function updateEnvironment(): void {
-  if (!look!.reflections) { scene.environment = null; return; }
+  if (!look!.reflections) { applyEnv(); return; }
   const key = theme.id;
-  if (key === envKey && envTex) { scene.environment = envTex; return; }
+  if (key === envKey && envTex) { applyEnv(); return; }
   const w = 64, h = 32;
   const px = new Float32Array(w * h * 4);
   const top = new Color(theme.skyTop), bot = new Color(theme.horizon), sunC = new Color(theme.sun);
@@ -590,11 +602,19 @@ function updateEnvironment(): void {
     envTex?.dispose();
     envTex = next;
     envKey = key;
-    scene.environment = envTex;
+    applyEnv();
   } catch (e) {
     console.warn("environment:", e instanceof Error ? e.message : String(e));
-    scene.environment = null;
+    envTex = null;
+    applyEnv();
   }
+}
+
+function applyEnv(): void {
+  scene.traverse((o) => {
+    const m = (o as Mesh).material as unknown;
+    for (const x of Array.isArray(m) ? m : [m]) if (x instanceof MeshStandardMaterial) withEnv(x);
+  });
 }
 
 // --- building and the look --------------------------------------------------------------------------
@@ -724,6 +744,8 @@ export function render(prev: State | null, cur: State, alpha: number, dtRaw: num
   const aspect = width > 0 && height > 0 ? width / height : 16 / 9;
   const hFov = 2 * Math.atan(Math.tan((FRAMING.fov * PI / 180) / 2) * aspect) * 180 / PI;
   camera.fov = hFov < 62 ? 2 * Math.atan(Math.tan((62 * PI / 180) / 2) / aspect) * 180 / PI : FRAMING.fov;
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
 
   // Bird: interpolated position, pose from velocity.
   const by = prev ? prev.bird.y + (cur.bird.y - prev.bird.y) * alpha : cur.bird.y;
