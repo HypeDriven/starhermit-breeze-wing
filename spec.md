@@ -14,7 +14,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | Genre | One-button arcade flight (gravity + impulse lift, scrolling gates), solo |
 | Players | 1; asynchronous comparison through daily and score-chase leaderboards |
 | Session length | 20–90 s per round; a sitting is typically 3–10 rounds (5–15 min) |
-| Platforms | StarHermit engine script game (engine 1.27.0, host API 1.29): natively in the StarHermit client and in browsers through the engine's web runtime; landscape and portrait |
+| Platforms | StarHermit engine script game (engine 1.28.0, host API 1.30): natively in the StarHermit client and in browsers through the engine's web runtime; landscape and portrait |
 | Rendering | `starhermit:scene` (three.js-shaped) procedural 3D sky under a `starhermit:ui` shell; no image textures in the scene; post effects chosen by the runtime's graphics level (§13 Graphics) |
 | Simulation | The runtime's fixed 60 Hz steps, deterministic, seeded; rules run identically in the engine and Node |
 
@@ -22,7 +22,7 @@ points, but the middle of the gate is where streaks and scores are made.
 
 | Path | Role |
 |---|---|
-| `starhermit.txt` | Manifest: `launch=index.html`, `engine.entry=native/main.ts`, `engine.version=1.27.0`, `engine.minor=29`, capabilities `platform,storage,clipboard`, the five `control.*` actions with their gamepad defaults |
+| `starhermit.txt` | Manifest: `launch=index.html`, `engine.entry=native/main.ts`, `engine.version=1.28.0`, `engine.minor=30`, capabilities `platform,storage,clipboard`, the five `control.*` actions with their gamepad defaults |
 | `index.html`, `starhermit-files.json` | The engine's web loader and file index, written by `npm run package` (never edited by hand) |
 | `native/main.ts` | Entry module: app state machine, fixed-step round, countdown, flap / undo / pause, progression and achievements, safe snapshot, input routing, lifecycle |
 | `native/screens.ts` | Every screen and the HUD in `starhermit:ui` (immediate mode), layouts by window size, drawn glyphs, the title emblem and results horizon art |
@@ -426,7 +426,7 @@ controls, accessibility) and the bug-report and crash paths; the game sees only 
   clouds (faceted otherwise). The sky dome and the sea are WGSL `ShaderMaterial`s with the browser
   build's noise, cirrus, stars, aurora and glints. Burst particles and motes are `Points` with a
   soft dot texture (per-particle alpha; gold bursts and fireflies are HDR so they bloom). Post
-  effects: `renderer.bloom` (strength 0.16 — the page's r160 0.4 squared —, radius 0.45, threshold 0.9, half resolution),
+  effects: `renderer.bloom` (bloom model r160 at the page's strength 0.4, radius 0.45, threshold 0.9, half resolution),
   `renderer.grade` (display space: S-curve, +14 % saturation, cool shadows / warm highlights,
   vignette 0.2), `renderer.antialias`.
 

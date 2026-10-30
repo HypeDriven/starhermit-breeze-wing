@@ -653,12 +653,12 @@ export function applyLook(next: Look): void {
   updateEnvironment();
   // Post effects, as the browser build's composer chain per preset. High
   // threshold: only the sun, next-gate trims, sparkles and fireflies bloom.
-  // The page's r160 UnrealBloomPass strength squared (minor 29 bloom follows r185).
-  renderer.bloom = next.bloom ? { strength: 0.16, radius: 0.45, threshold: 0.9, resolution: 0.5 } : null;
+  // The page's r160 UnrealBloomPass at its own strength (bloom model r160).
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.4, radius: 0.45, threshold: 0.9, resolution: 0.5 } : null;
   // The grade ShaderPass after OutputPass: 0.2 of a smoothstep S-curve, +14 %
   // saturation, warm highlights / cool shadows, vignette 0.2.
   renderer.grade = next.grade ? {
-    space: "display", contrast: 0.1, saturation: 1.14,
+    space: "display", contrastCurve: "s", contrast: 0.2, saturation: 1.14,
     shadows: [0.97, 0.99, 1.04], highlights: [1.03, 1.0, 0.97], split: [0.25, 0.8],
     vignette: { amount: 0.2, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
