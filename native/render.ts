@@ -547,7 +547,7 @@ function stepParticles(dt: number): void {
     partPos[i * 3] = p.x; partPos[i * 3 + 1] = p.y; partPos[i * 3 + 2] = p.z;
     partCol[i * 4] = p.r; partCol[i * 4 + 1] = p.g; partCol[i * 4 + 2] = p.b; partCol[i * 4 + 3] = fade;
   }
-  const pa = partGeo.getAttribute("position")!, ca = partGeo.getAttribute("color")!;
+  const pa = (partGeo.getAttribute("position") as BufferAttribute), ca = (partGeo.getAttribute("color") as BufferAttribute);
   pa.array = partPos; pa.needsUpdate = true;
   ca.array = partCol; ca.needsUpdate = true;
 }
@@ -561,7 +561,7 @@ function stepMotes(dt: number, scroll: number): void {
     if (motePos[i * 3]! < -16) motePos[i * 3] = motePos[i * 3]! + 38;
   }
   motes.position.y = camY * 0.9;
-  const a = moteGeo.getAttribute("position")!;
+  const a = (moteGeo.getAttribute("position") as BufferAttribute);
   a.array = motePos;
   a.needsUpdate = true;
 }
