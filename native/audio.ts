@@ -15,8 +15,9 @@
 // envelopes; the procedural stand-ins the browser build played while a clip
 // decoded, and its filtered-noise wind bed, are not ported: the engine's
 // browser runtime drops clip loads and plays while a synthesis graph changes
-// (the arrow-exodus port's finding). Clips load once the mixer runs
-// (natively at once, in a browser after the first press), one at a time.
+// (the arrow-exodus port's finding). The clips all load at once in onStart;
+// the notes render and the music starts once the mixer runs (in a browser
+// after the first press).
 import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
 import { createRng } from "../js/rules.js";
 
@@ -35,21 +36,15 @@ const VOICE = new Set(["invalid", "countdown", "countdown:final", "ui"]);
 
 export interface Detail { reason?: string; final?: boolean; streak?: number }
 const clips = new Map<string, AudioClip>();
-const queue: string[] = [];
-let loading = false;
-let wantClips = false;
 let onCaption: ((key: string, vars: Record<string, string | number>) => void) | null = null;
 let lastCaption = -1e9;
 
-function load(name: string): void { if (!queue.includes(name) && !clips.has(name)) queue.push(name); }
-function pump(): void {
-  if (loading || !queue.length) return;
-  const name = queue.shift()!;
-  loading = true;
-  loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); loading = false; }, (e: unknown) => { console.warn(`sfx ${name}: ${String(e)}`); loading = false; });
+/** Loads every clip at once (onStart); a cue whose clip is still loading is skipped. */
+export function loadSfx(): void {
+  for (const name of new Set([...Object.values(SAMPLES), ...Object.values(AMBIENCE)])) {
+    loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
+  }
 }
-/** Asks for the clips; they load once the mixer runs (see update). */
-export function loadSfx(): void { wantClips = true; }
 /** cb(captionKey, vars) for each captioned event (an English caption key, translated by the caller). */
 export function setOnCaption(cb: (key: string, vars: Record<string, string | number>) => void): void { onCaption = cb; }
 
@@ -84,7 +79,7 @@ export function event(type: string, detail: Detail = {}): void {
   const voice = VOICE.has(key);
   const bus: Bus = voice ? "interface" : "effects";
   try { playClip(clip, { bus, gain: voice ? LEVEL.voice : LEVEL.effects }); }
-  catch { clips.delete(file!); load(file!); } // a clip the mixer lost: load it again
+  catch { /* the mixer is full this frame: skip it */ }
 }
 
 // -- adaptive music ----------------------------------------------------------------------
@@ -144,18 +139,10 @@ export function setPaused(on: boolean): void {
   try { ambience.fade(on ? 0 : 0.9 * LEVEL.ambience, 0.3); } catch { ambience = null; }
 }
 
-/** Each frame: the clips once the mixer runs (one at a time), the music's notes
- * one a half second after them, the ambience once its clip is in, then the
+/** Each frame once the mixer runs: the music's notes one a half second, the ambience once its clip is in, then the
  * music's next steps by mixer time. */
 export function update(): void {
   if (context.state !== "running") return;
-  if (wantClips) {
-    wantClips = false;
-    for (const name of new Set([...Object.values(SAMPLES), ...Object.values(AMBIENCE)])) load(name);
-    return;
-  }
-  pump();
-  if (loading || queue.length) return;
   try {
     if (context.currentTime >= nextRender) {
       for (const [k, f, type, a, d] of NOTE_LIST) {
