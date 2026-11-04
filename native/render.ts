@@ -636,11 +636,12 @@ export function applyLook(next: Look): void {
   const shadows = next.shadows > 0;
   renderer.shadowMap.enabled = shadows;
   keyLight.castShadow = shadows;
+  // Since minor 23 the engine keeps the game's mapSize whatever the level, so the level's size is set here.
   if (shadows) keyLight.shadow.mapSize = next.shadows;
   skyUniforms.uDetail.value = next.skyDetailed ? 1 : 0;
   seaUniforms.uDetail.value = next.skyDetailed ? 1 : 0;
   sunHalo.visible = next.skyDetailed;
-  const meshes = !prev || prev.detailed !== next.detailed || prev.reflections !== next.reflections || prev.budget.material !== next.budget.material || prev.shadows !== next.shadows;
+  const meshes = !prev || prev.detailed !== next.detailed || prev.reflections !== next.reflections || prev.budget.material !== next.budget.material || (prev.shadows > 0) !== shadows;
   if (meshes) { buildBird(); clearGates(); }
   if (meshes || !prev || prev.budget.islands !== next.budget.islands || prev.budget.clouds !== next.budget.clouds || prev.budget.tufts !== next.budget.tufts || prev.budget.cloudDetail !== next.budget.cloudDetail) buildEnvironment(envSeed);
   poolSize = Math.max(16, next.budget.pool);
@@ -651,10 +652,11 @@ export function applyLook(next: Look): void {
   motes.visible = next.budget.motes > 0;
   envKey = "";
   updateEnvironment();
-  // Post effects, as the browser build's composer chain per preset. High
+  // Post effects, the browser build's composer chain with the level's
+  // effects (levelSettings(): which run, bloom's resolution). High
   // threshold: only the sun, next-gate trims, sparkles and fireflies bloom.
   // The page's r160 UnrealBloomPass at its own strength (bloom model r160).
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.4, radius: 0.45, threshold: 0.9, resolution: 0.5 } : null;
+  renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.4, radius: 0.45, threshold: 0.9, resolution: next.bloom } : null;
   // The grade ShaderPass after OutputPass: 0.2 of a smoothstep S-curve, +14 %
   // saturation, warm highlights / cool shadows, vignette 0.2.
   renderer.grade = next.grade ? {

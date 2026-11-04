@@ -1,15 +1,17 @@
-// The look per graphics level: the browser build's four presets and budgets
-// (js/gfx.js TABLE / BUDGETS / SCENERY / PARTICLES, each tuned to hold 60 FPS
-// on the weakest GPU its Auto gave it) keyed by the runtime's quality tier
-// (frame().quality), with the island, cloud, particle and mote counts scaled
-// within the tier by the level (frame().levelIndex), as the browser build
-// scaled them by its hardware level (at most 4×, never below the tier's
-// floor). The runtime owns the rest of what the old Graphics panel did: Auto
-// and the level choice, render scale and the pixel-ratio cap, adaptive
-// resolution, the frame-rate limit and readout, and the shadow-map size and
-// MSAA samples it holds to the level. The per-category overrides of the old
-// panel are not offered (the runtime's Options choose a level).
-import type { QualityTier } from "starhermit:engine";
+// The look per graphics level. The engine-owned effects (shadows and their
+// map size, bloom, the grade, anti-aliasing) are the level's own
+// (levelSettings(): the same table every StarHermit game reads). The game's
+// art (materials, sky and surface detail, reflections, scenery) is the
+// browser build's four presets (js/gfx.js TABLE / BUDGETS / SCENERY /
+// PARTICLES) keyed by the level's quality tier, with the island, cloud,
+// particle and mote counts scaled within the tier by the level's particle
+// budget against the tier's anchor level (quantum, molecular, terrestrial,
+// galactic), at most 4×. The runtime owns what the old Graphics panel did
+// besides: Auto and the level choice, render scale and the pixel-ratio cap,
+// adaptive resolution and the frame-rate limit and readout. The
+// per-category overrides of the old panel are not offered (the runtime's
+// Options choose a level).
+import { levelSettings, type GraphicsLevel, type LevelSettings, type QualityTier } from "starhermit:engine";
 import type { AntialiasMode } from "starhermit:scene";
 
 export type Preset = QualityTier;
@@ -29,8 +31,10 @@ export interface Budget {
 }
 export interface Look {
   preset: Preset;
-  shadows: 0 | 1024 | 2048 | 4096;
-  bloom: boolean;
+  /** The level's key-light shadow map size, 0 when the level draws no shadows. */
+  shadows: number;
+  /** The level's bloom resolution as a fraction of the frame (null: off). */
+  bloom: number | null;
   grade: boolean;
   antialias: AntialiasMode;
   reflections: boolean;
@@ -42,11 +46,12 @@ export interface Look {
   budget: Budget;
 }
 
-const TABLE: Record<Preset, Omit<Look, "preset" | "budget"> & { scenery: "sparse" | "normal" | "rich" }> = {
-  low: { shadows: 0, bloom: false, grade: false, antialias: "off", reflections: false, skyDetailed: false, scenery: "sparse", detailed: false, particles: "low" },
-  balanced: { shadows: 1024, bloom: true, grade: true, antialias: "fxaa", reflections: true, skyDetailed: true, scenery: "normal", detailed: true, particles: "low" },
-  high: { shadows: 2048, bloom: true, grade: true, antialias: "smaa", reflections: true, skyDetailed: true, scenery: "rich", detailed: true, particles: "high" },
-  ultra: { shadows: 4096, bloom: true, grade: true, antialias: "msaa", reflections: true, skyDetailed: true, scenery: "rich", detailed: true, particles: "high" },
+type Art = Pick<Look, "reflections" | "skyDetailed" | "detailed" | "particles"> & { scenery: "sparse" | "normal" | "rich" };
+const TABLE: Record<Preset, Art> = {
+  low: { reflections: false, skyDetailed: false, scenery: "sparse", detailed: false, particles: "low" },
+  balanced: { reflections: true, skyDetailed: true, scenery: "normal", detailed: true, particles: "low" },
+  high: { reflections: true, skyDetailed: true, scenery: "rich", detailed: true, particles: "high" },
+  ultra: { reflections: true, skyDetailed: true, scenery: "rich", detailed: true, particles: "high" },
 };
 const SCENERY = { sparse: { islands: 6, clouds: 6 }, normal: { islands: 10, clouds: 10 }, rich: { islands: 14, clouds: 16 } };
 const PARTICLES = { low: { pool: 120, motes: 0 }, high: { pool: 900, motes: 45 } };
@@ -58,16 +63,17 @@ const BUDGETS: Record<Preset, { material: "lambert" | "standard"; cloudDetail: n
 };
 export const POOL_MAX = 4000;
 export const MOTE_MAX = 240;
-/** The first level index of each tier (quantum … galactic). */
-const TIER_FLOOR: Record<Preset, number> = { low: 0, balanced: 2, high: 4, ultra: 7 };
+/** Each tier's reference level: its budgets are tuned there. */
+const ANCHOR: Record<Preset, GraphicsLevel> = { low: "quantum", balanced: "molecular", high: "terrestrial", ultra: "galactic" };
 
-/** The look for a quality tier at a level index (0 quantum … 9 infinite). */
-export function lookFor(preset: Preset, levelIndex: number): Look {
+/** The look for a graphics level (the frame's by default). */
+export function lookFor(s: LevelSettings = levelSettings()): Look {
+  const preset = s.quality;
   const t = TABLE[preset];
   const b = BUDGETS[preset];
-  // Levels are about 1.64× apart in GPU throughput: counts grow with the
-  // level above the tier's first, at most 4× the tier's budget.
-  const k = Math.min(4, Math.pow(1.64, Math.max(0, levelIndex - TIER_FLOOR[preset])));
+  // Counts grow with the level's particle budget above the tier's anchor,
+  // at most 4× the tier's budget.
+  const k = Math.min(4, s.particles / levelSettings(ANCHOR[preset]).particles);
   const sc = SCENERY[t.scenery];
   const pt = PARTICLES[t.particles];
   const budget: Budget = {
@@ -81,5 +87,11 @@ export function lookFor(preset: Preset, levelIndex: number): Look {
   };
   const { scenery: _s, ...rest } = t;
   void _s;
-  return { preset, ...rest, budget };
+  return {
+    preset, ...rest, budget,
+    shadows: s.shadows ? s.shadowMapSize : 0,
+    bloom: s.bloom ? s.bloom.resolution : null,
+    grade: s.grade,
+    antialias: s.antialias,
+  };
 }

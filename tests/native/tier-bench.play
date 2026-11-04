@@ -1,0 +1,72 @@
+# Graphics-tier bench (tools/engine-tier-bench.mjs): today's Daily Breeze
+# (a shared seed, so every run flies the same sky), flapping on Space,
+# ~600 measured frames of the scrolling scene.
+until 300 Play
+frames 60
+click Daily Breeze
+until 60 One shared sky for everyone today.
+frames 10
+click Start
+frames 170
+key Space 2
+frames 24
+key Space 2
+frames 24
+key Space 2
+frames 24
+key Space 2
+frames 24
+key Space 2
+frames 24
+measure start
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+key Space 2
+frames 22
+measure stop

@@ -430,12 +430,13 @@ controls, accessibility) and the bug-report and crash paths; the game sees only 
   `renderer.grade` (display space: S-curve, +14 % saturation, cool shadows / warm highlights,
   vignette 0.2), `renderer.antialias`.
 
-  The runtime's graphics level (Options › Graphics: Auto or a level) picks the tier
-  (`frame().quality`) and the counts scale with the level within it (about 1.64× a level, at most
-  4×): Low — Lambert materials, no shadows, bloom or grade, plain sky and surfaces, 6 islands /
+  The runtime's graphics level (Options › Graphics: Auto or a level) sets the shadows and their map
+  size, bloom resolution, grade and anti-aliasing (`levelSettings()`); its quality tier keys the
+  art, and the counts scale with the level's particle budget against the tier's anchor (at most
+  4×). At the anchors: Low — Lambert materials, no shadows, bloom or grade, plain sky and surfaces, 6 islands /
   6 clouds, 120 particles; Balanced — PBR, 1024 shadows, bloom, grade, FXAA, reflections, detailed
   sky and surfaces, 10 / 10, 120 particles and 20 motes; High — 2048 shadows, SMAA, 17 / 20,
-  extra tufts, 900 particles and 45 motes; Ultra — 4096 shadows, MSAA, 22 / 26, 1350 particles
+  extra tufts, 900 particles and 45 motes; Ultra — 4096 shadows, full-resolution bloom, MSAA, 22 / 26, 1350 particles
   and 80 motes. The runtime owns render scale, pixel-ratio cap, adaptive resolution, the frame-rate
   limit and readout. Graphics never change rules, hitboxes or hazard visibility.
 - **Server:** dependency-free `node:http` dev server (unchanged), `BW_DATA_DIR` or `./data`.
