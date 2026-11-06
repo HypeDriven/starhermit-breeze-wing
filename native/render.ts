@@ -34,13 +34,13 @@ import {
   ACESFilmicToneMapping, AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CircleGeometry, Color,
   ConeGeometry, CylinderGeometry, DataTexture, DirectionalLight, FloatType, Fog, Group, HemisphereLight, Mesh,
   MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator,
-  PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RGBAFormat, ShaderMaterial, SphereGeometry, Sprite,
+  PerspectiveCamera, PlaneGeometry, ParticleEmitter, Points, PointsMaterial, RGBAFormat, ShaderMaterial, SphereGeometry, Sprite,
   SRGBColorSpace, SpriteMaterial, Vector3, renderer, scene,
 } from "starhermit:scene";
 import type { Material, MaterialHooks, Texture } from "starhermit:scene";
 import { WORLD, gateGapY, currentGapHalf, currentSpeed, SIM_DT, createRng } from "../js/rules.js";
 import { THEMES } from "../js/content.js";
-import { MOTE_MAX, POOL_MAX, type Look } from "./quality.ts";
+import { MOTE_MAX, type Look } from "./quality.ts";
 
 type Theme = (typeof THEMES)["day"];
 interface Gate { i: number; x: number; baseY: number; oscPhase: number; passed: boolean }
@@ -68,7 +68,6 @@ let camY = 0;
 let flapKick = 0;
 let flapPhase = 0;
 let envSeed = 1;
-let fxSeed = 22222;
 
 // --- lights ---------------------------------------------------------------------------
 const keyLight = new DirectionalLight(0xffffff, 2.2);
@@ -481,18 +480,29 @@ function buildEnvironment(seed: number): void {
 }
 
 // --- particles and motes ---------------------------------------------------------------------------
-interface Part { life: number; ttl: number; x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number; g: number; b: number }
-const parts: Part[] = [];
-for (let i = 0; i < POOL_MAX; i++) parts.push({ life: 1, ttl: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1, g: 1, b: 1 });
-let partCursor = 0;
+// Debris is native: an emitter a burst shape (the spread, life and start of each
+// kind the browser build gave its pool), each burst its own color and glow.
+let fxSeed = 22222;
+/** The camera shake's jitter. */
+function fxRng(): number { return (fxSeed = (Math.imul(fxSeed || 22222, 1103515245) + 12345) & 0x7fffffff) / 0x7fffffff; }
 let poolSize = 120;
-const partPos = new Float32Array(POOL_MAX * 3);
-const partCol = new Float32Array(POOL_MAX * 4);
-const partGeo = new BufferGeometry();
-partGeo.setAttribute("position", new BufferAttribute(partPos, 3));
-partGeo.setAttribute("color", new BufferAttribute(partCol, 4));
-const points = new Points(partGeo, new PointsMaterial({ size: 0.34, map: dotTexture(), vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true }));
-points.frustumCulled = false;
+const SPARKS = new Map<string, ParticleEmitter>();
+const sparkMat = new PointsMaterial({ size: 0.34, map: dotTexture(), transparent: true, depthWrite: false, sizeAttenuation: true });
+const sparkGroup = new Group();
+function sparks(vy: number, spread: number, ttl: number): ParticleEmitter {
+  const key = `${vy}/${spread}/${ttl}`;
+  let e = SPARKS.get(key);
+  if (!e) {
+    e = new ParticleEmitter({
+      capacity: 256, material: sparkMat, seed: SPARKS.size + 1, space: "local", life: ttl,
+      velocity: [0, vy, 0], velocitySpread: [spread / 2, spread / 2, spread / 4], gravity: [0, -6, 0], opacity: [1, 0],
+    });
+    e.frustumCulled = false;
+    sparkGroup.add(e);
+    SPARKS.set(key, e);
+  }
+  return e;
+}
 const motePos = new Float32Array(MOTE_MAX * 3);
 const moteSeeds: { ph: number; sp: number; amp: number }[] = [];
 {
@@ -514,42 +524,11 @@ function tintMotes(): void {
   moteMat.opacity = night ? 0.75 : 0.3;
   moteMat.size = night ? 0.2 : 0.14;
 }
-function fxRng(): number { return (fxSeed = (Math.imul(fxSeed || 22222, 1103515245) + 12345) & 0x7fffffff) / 0x7fffffff; }
-const burstColor = new Color(1, 1, 1);
-function spawn(x: number, y: number, z: number, o: { vx?: number; vy?: number; vz?: number; spread?: number; ttl?: number; glow?: number }): void {
-  const p = parts[partCursor]!;
-  partCursor = (partCursor + 1) % poolSize;
-  p.life = 0; p.ttl = o.ttl || 0.8;
-  p.x = x; p.y = y; p.z = z;
-  const spread = o.spread ?? 2.2;
-  p.vx = (o.vx || 0) + (fxRng() - 0.5) * spread;
-  p.vy = (o.vy || 0) + (fxRng() - 0.5) * spread;
-  p.vz = (o.vz || 0) + (fxRng() - 0.5) * spread * 0.5;
-  const glow = o.glow || 1;
-  p.r = burstColor.r * glow; p.g = burstColor.g * glow; p.b = burstColor.b * glow;
-}
-function burst(x: number, y: number, n: number, color: number, o: { vx?: number; vy?: number; spread?: number; ttl?: number; glow?: number } = {}): void {
+function burst(x: number, y: number, n: number, color: number, o: { vy?: number; spread?: number; ttl?: number; glow?: number } = {}): void {
   if (!look) return;
   if (reducedMotion) n = Math.min(n, 6);
   else if (look.particles === "high") n = Math.round(n * 1.5);
-  const count = Math.min(n, poolSize);
-  burstColor.set(color);
-  for (let i = 0; i < count; i++) spawn(x, y, 0.3, o);
-}
-function stepParticles(dt: number): void {
-  for (let i = 0; i < poolSize; i++) {
-    const p = parts[i]!;
-    if (p.life >= p.ttl) { partPos[i * 3 + 1] = -9999; partCol[i * 4 + 3] = 0; continue; }
-    p.life += dt;
-    p.vy -= 6 * dt; // soft gravity on debris
-    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-    const fade = Math.max(0, 1 - p.life / p.ttl);
-    partPos[i * 3] = p.x; partPos[i * 3 + 1] = p.y; partPos[i * 3 + 2] = p.z;
-    partCol[i * 4] = p.r; partCol[i * 4 + 1] = p.g; partCol[i * 4 + 2] = p.b; partCol[i * 4 + 3] = fade;
-  }
-  const pa = (partGeo.getAttribute("position") as BufferAttribute), ca = (partGeo.getAttribute("color") as BufferAttribute);
-  pa.array = partPos; pa.needsUpdate = true;
-  ca.array = partCol; ca.needsUpdate = true;
+  sparks(o.vy ?? 0, o.spread ?? 2.2, o.ttl ?? 0.8).burst(Math.min(n, poolSize), [x, y, 0.3], { color: new Color(color).multiplyScalar(o.glow ?? 1) });
 }
 function stepMotes(dt: number, scroll: number): void {
   const n = look ? look.budget.motes : 0;
@@ -620,7 +599,7 @@ function applyEnv(): void {
 // --- building and the look --------------------------------------------------------------------------
 function build(): void {
   built = true;
-  scene.add(keyLight, keyLight.target, hemi, skyDome, sea, sun, envGroup, gateGroup, birdGroup, ghostGroup, points, motes);
+  scene.add(keyLight, keyLight.target, hemi, skyDome, sea, sun, envGroup, gateGroup, birdGroup, ghostGroup, sparkGroup, motes);
   renderer.camera = camera;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
@@ -645,9 +624,6 @@ export function applyLook(next: Look): void {
   if (meshes) { buildBird(); clearGates(); }
   if (meshes || !prev || prev.budget.islands !== next.budget.islands || prev.budget.clouds !== next.budget.clouds || prev.budget.tufts !== next.budget.tufts || prev.budget.cloudDetail !== next.budget.cloudDetail) buildEnvironment(envSeed);
   poolSize = Math.max(16, next.budget.pool);
-  if (partCursor >= poolSize) partCursor = 0;
-  for (let i = poolSize; i < POOL_MAX; i++) { parts[i]!.life = parts[i]!.ttl; partPos[i * 3 + 1] = -9999; partCol[i * 4 + 3] = 0; }
-  partGeo.setDrawRange(0, poolSize);
   moteGeo.setDrawRange(0, next.budget.motes);
   motes.visible = next.budget.motes > 0;
   envKey = "";
@@ -703,8 +679,8 @@ export function prepareSession(config: { theme: string; seed: number }): void {
   envSeed = config.seed;
   buildEnvironment(config.seed);
   camY = 0;
+  for (const e of SPARKS.values()) e.clear();
   fxSeed = (config.seed ^ 0xf1e1d) >>> 0;
-  for (const p of parts) p.life = p.ttl;
 }
 
 export function setReducedMotion(on: boolean): void { reducedMotion = on; }
@@ -823,7 +799,6 @@ export function render(prev: State | null, cur: State, alpha: number, dtRaw: num
     seaUniforms.uTime.value += dt;
     stepMotes(dt, scrollSpeed);
   }
-  stepParticles(dt);
   // The sun follows the camera gently (keeps the composition stable).
   sun.position.x = camera.position.x - 34;
 }

@@ -32,7 +32,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | `native/platform.ts` | Engine save (progress) with foreign-save migration and merge, device storage for the snapshot, the game's settings with legacy import, player chip, invite, server time, leaderboards read and score posting |
 | `native/i18n.ts`, `native/style.ts` | Interface language from the runtime; style registration and palette tokens |
 | `js/rules.js`, `js/content.js`, `js/session.js`, `js/store.js` | Pure rules, content, session (command log, undo, replay envelope, safe snapshot) and save model — unchanged from the browser build, shared with Node tests and `server.js` |
-| `js/strings.js`, `js/i18n.js` | Translation tables (English source strings as keys) and `T()` / `cfgName()` |
+| `assets/strings.json` | Translation tables (English source strings as keys) for the engine's `strings`; `T()` / `cfgName()` in `native/i18n.ts` |
 | `js/migrate.js` | Engine save document, the browser build's cloud save and settings keys → engine data |
 | `assets/ui-style.json` | Styles converted from `tools/ui-style.css` with `starhermit css` (`npm run css`) |
 | `assets/title-emblem.webp`, `assets/results-horizon.webp` | Storybook illustrations used by the title and results panels |
@@ -319,7 +319,7 @@ audio-only: every cue has a caption (bracketed, ≥ 400 ms apart, translated) an
 into each sound's gain. Pausing or hiding the window fades the ambience out and holds the music.
 **Music:** a 300 ms grid — a root drone every 8 steps and A-minor-pentatonic triangle notes with
 probability `0.35 + 0.4·intensity`; intensity = `0.25 + 0.6·min(1, gatesPassed/30)`, 0.2 on
-results. The notes are rendered once into clips with the browser build's envelopes.
+results. The notes are rendered offline once into clips with the browser build's envelopes.
 **Ambience:** the authored 12 s loop for the theme fades in over 2.5 s with the round.
 
 **Clips** load once the mixer runs (natively at once, in browsers after the first press), one at
@@ -352,17 +352,17 @@ web runtime). `sfx/manifest.txt` is the canonical table; summary:
 Nine locales ship: **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT**.
 
 - **Strings.** Code and content are authored in English and the English text is the lookup key.
-  `js/strings.js` holds one row per key with es-419, de-DE, fr-FR, pt-BR and it-IT; en-GB, es-ES
-  and fr-CA list only their differences. `T(key, vars)` (`js/i18n.js`) falls back regional →
-  parent → English and fills `{name}` placeholders. Every on-screen string, caption,
+  `assets/strings.json` holds the engine's `strings` tables; en-GB, es-ES and fr-CA list only their
+  differences. `T(key, vars)` (`native/i18n.ts`) falls back along the engine's chain and fills
+  `{name}` placeholders; the account lines are the engine's `starhermit.*` strings. Every on-screen string, caption,
   announcement and the StarHermit account and leaderboard lines go through `T()`; rich help text
   is shown as plain text. Content names are translated at display time (journey stages as "{sky}
   {n}" / "Mastery: {sky}", "Daily Breeze — {date}"). "Breeze Wing" and "StarHermit" are names.
 - **Language** is the runtime's interface language (Options › Language, else the account's
-  preferred language or the device's), mapped to the nearest shipped locale (`es-MX → es-419`,
+  preferred language or the device's), read along the engine's locale chain (`es-MX → es-419`,
   `en-AU → en-GB`, `fr → fr-FR`, `pt-PT → pt-BR`). A change re-renders every screen on the next
   frame without touching the round in play.
-- `tests/i18n.test.mjs` collects every key from `native/*.ts`, `js/i18n.js` and the content, and
+- `tests/i18n.test.mjs` collects every key from `native/*.ts` and the content, and
   fails when a locale lacks one, a translation drops a placeholder or markup tag, or a table keeps
   a key nothing uses.
 

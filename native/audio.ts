@@ -11,14 +11,13 @@
 // ambience → "effects", the cues (countdown beeps, the invalid bonk) and the
 // UI click → "interface". The old default bus levels (music 60 %, effects
 // 80 %, ambience 50 %, cues 70 %) are folded into each sound's gain. The
-// music's notes are rendered once into clips (createClip) with the same
+// music's notes are offline graphs rendered once into clips with the same
 // envelopes; the procedural stand-ins the browser build played while a clip
-// decoded, and its filtered-noise wind bed, are not ported: the engine's
-// browser runtime drops clip loads and plays while a synthesis graph changes
-// (the arrow-exodus port's finding). The clips all load at once in onStart;
-// the notes render and the music starts once the mixer runs (in a browser
-// after the first press).
-import { context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
+// decoded, and its filtered-noise wind bed, are not ported. The clips load and
+// the notes render at once in onStart; the music starts once the mixer runs
+// (in a browser after the first press).
+import { OfflineAudioContext, context, createClip, loadClip, play as playClip, type AudioClip, type Bus, type Sound } from "starhermit:audio";
+import { frame } from "starhermit:engine";
 import { createRng } from "../js/rules.js";
 
 /** Marks an English caption key (translated by the caption listener). */
@@ -44,6 +43,9 @@ export function loadSfx(): void {
   for (const name of new Set([...Object.values(SAMPLES), ...Object.values(AMBIENCE)])) {
     loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
   }
+  for (const [k, f, type, a, d] of NOTE_LIST) {
+    renderTone(f, type, a, d).then((c) => { notes.set(k, c); }, (e: unknown) => console.warn(`audio: ${String(e)}`));
+  }
 }
 /** cb(captionKey, vars) for each captioned event (an English caption key, translated by the caller). */
 export function setOnCaption(cb: (key: string, vars: Record<string, string | number>) => void): void { onCaption = cb; }
@@ -63,7 +65,7 @@ function caption(type: string, d: Detail): void {
   };
   const key = map[type];
   if (!key || !onCaption) return;
-  const now = context.currentTime > 0 ? context.currentTime : Date.now() / 1000;
+  const now = frame().time; // one clock: the mixer's stands at 0 until a sound starts, and mixing clocks shut captions off
   if (now - lastCaption < 0.4) return;
   lastCaption = now;
   onCaption(key, { n: d.streak ?? "" });
@@ -88,17 +90,17 @@ const ROOT = 220;
 const DEGREES = [0, 3, 5, 7, 10]; // minor pentatonic
 const notes = new Map<string, AudioClip>();
 /** js/audio.js _tone(): an exponential attack to `peak`, an exponential decay to 0.0001 (peak 1 here, gain at play). */
-function toneClip(freq: number, type: "sine" | "triangle", attack: number, decay: number): AudioClip {
-  const n = Math.round((attack + decay + 0.05) * RATE);
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const t = i / RATE;
-    const env = t < attack ? 0.0001 * Math.pow(1 / 0.0001, t / attack) : t < attack + decay ? Math.pow(0.0001, (t - attack) / decay) : 0;
-    const ph = (freq * t) % 1;
-    const w = type === "sine" ? Math.sin(2 * Math.PI * freq * t) : 4 * Math.abs(ph - 0.5) - 1;
-    out[i] = w * env;
-  }
-  return createClip([out], RATE);
+async function renderTone(freq: number, type: "sine" | "triangle", attack: number, decay: number): Promise<AudioClip> {
+  const off = new OfflineAudioContext(1, Math.round((attack + decay + 0.05) * RATE), RATE);
+  const osc = off.createOscillator();
+  osc.type = type; osc.frequency.value = freq;
+  const g = off.createGain();
+  g.gain.setValueAtTime(0.0001, 0);
+  g.gain.exponentialRampToValueAtTime(1, attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, attack + decay);
+  osc.connect(g).connect(off.destination);
+  osc.start(); osc.stop(attack + decay);
+  return createClip(await off.startRendering());
 }
 const NOTE_LIST: [string, number, "sine" | "triangle", number, number][] = [
   ["drone", ROOT / 2, "sine", 0.02, 0.9],
@@ -109,7 +111,6 @@ let musicOn = false;
 let intensity = 0.3;
 let stepN = 0;
 let nextStep = 0;
-let nextRender = 0;
 let paused = false;
 
 /** Seeds the cosmetic variant stream (never affects rules). */
@@ -139,16 +140,10 @@ export function setPaused(on: boolean): void {
   try { ambience.fade(on ? 0 : 0.9 * LEVEL.ambience, 0.3); } catch { ambience = null; }
 }
 
-/** Each frame once the mixer runs: the music's notes one a half second, the ambience once its clip is in, then the
- * music's next steps by mixer time. */
+/** Each frame once the mixer runs: the ambience once its clip is in, then the music's next steps by mixer time. */
 export function update(): void {
   if (context.state !== "running") return;
   try {
-    if (context.currentTime >= nextRender) {
-      for (const [k, f, type, a, d] of NOTE_LIST) {
-        if (!notes.has(k)) { notes.set(k, toneClip(f, type, a, d)); nextRender = context.currentTime + 0.5; return; }
-      }
-    }
     if (ambienceKind && !ambience) {
       const clip = clips.get(AMBIENCE[ambienceKind] ?? "");
       if (clip) {

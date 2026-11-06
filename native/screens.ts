@@ -34,10 +34,8 @@ import {
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; wide: boolean; narrow: boolean; shortLand: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const sc = v.scale, lw = Math.max(1, v.width), lh = Math.max(1, v.height);
   return { lw, lh, sc, wide: lw >= 1024, narrow: lw <= 700, shortLand: lw > lh && lh <= 500 };
 }
 const lastHeight = new Map<string, number>();
@@ -188,7 +186,6 @@ function firstLabel(name: ScreenName): string | null {
   }
 }
 
-let toastH = 40;
 export function drawScreens(): void {
   const L = layoutNow();
   // A screen that just opened focuses its first control once its layout has settled.
@@ -227,15 +224,6 @@ export function drawScreens(): void {
       para(app.caption!.text, w - 24, "captions-text", "caption-text", true);
     }, { style: "captions" });
   }
-  if (app.toast) {
-    const text = app.toast.text();
-    const w = Math.min(L.lw - 32, 560);
-    ui.place("toast", { anchor: "top-start", x: (L.lw - Math.min(w, textWidth(text, "toast") + 44)) / 2, y: 70 }, () => {
-      const r = ui.column("toast-box", () => { para(text, w - 40, "toast-text", "toast-text", true); }, { style: "toast", align: "center" });
-      toastH = r.height / L.sc;
-    });
-  }
-  void toastH;
 }
 
 // ------------------------------------------------------------------ HUD
@@ -379,14 +367,14 @@ function titleScreen(L: Layout): void {
     const link = platform.inviteLink();
     if (link) {
       account.push({
-        id: "btn-invite", text: T("Invite a friend"),
+        id: "btn-invite", text: T("starhermit.invite"),
         act: () => {
-          try { clipboard.writeText(link); toast(() => T("Invite link copied to the clipboard.")); }
-          catch { toast(() => `${T("Could not copy the invite link.")} ${link}`, 6); }
+          try { clipboard.writeText(link); toast(T("starhermit.inviteCopied")); }
+          catch { toast(T("starhermit.inviteLink", { link }), 6); }
         },
       });
     }
-    if (!platform.signedIn()) account.push({ id: "btn-sign-in", text: T("Sign in with StarHermit"), act: () => { void requestSignIn().catch(() => undefined); } });
+    if (!platform.signedIn()) account.push({ id: "btn-sign-in", text: T("starhermit.signIn"), act: () => { void requestSignIn().catch(() => undefined); } });
     if (account.length) flow("title-account", account, w, "center");
     // The profile chip: avatar, name and cloud-sync state.
     const name = platform.displayName();
@@ -508,7 +496,7 @@ function journeyScreen(L: Layout): void {
 function countdownScreen(L: Layout): void {
   const prompt = app.countdownPrompt ? app.countdownPrompt() : "";
   ui.place("countdown", { anchor: "top-start", x: 0, y: 0 }, () => {
-    if (app.countdownText) ui.style("countdown", L.shortLand ? "countdown-compact" : null).id("countdown-text").label(T(app.countdownText));
+    if (app.countdownText) ui.style("countdown", L.shortLand ? "countdown-compact" : null).id("countdown-text").label(app.countdownText === "Go!" ? T(app.countdownText) : app.countdownText);
     para(prompt, Math.min(L.lw - 32, 70 * 9), "countdown-prompt", "countdown-prompt", true);
   }, { width: L.lw, height: L.lh, align: "center", justify: "center", spacing: 8 });
 }
@@ -571,8 +559,8 @@ function resultsScreen(L: Layout): void {
     para(T(cfg.ranked ? "Ranked round — replay recorded for verification." : "Unranked — practice never affects rating."), w, "blurb", "results-board");
     if (res.lb) {
       const lb = res.lb;
-      para(lb.pending ? T("Posting score to the leaderboard…") : !lb.posted ? T("Score not posted to the leaderboard.")
-        : lb.rank ? T("Leaderboard rank: #{rank}", { rank: lb.rank }) : T("Score posted to the leaderboard."), w, "blurb", "results-lb");
+      para(lb.pending ? T("starhermit.leaderboardPosting") : !lb.posted ? T("starhermit.leaderboardNotPosted")
+        : lb.rank ? T("starhermit.leaderboardRank", { rank: lb.rank }) : T("starhermit.leaderboardPosted"), w, "blurb", "results-lb");
     }
   }, (w) => {
     const list: Btn[] = [{ id: "btn-retry", text: T("Retry"), style: ["btn", "btn-primary"], act: retry }];

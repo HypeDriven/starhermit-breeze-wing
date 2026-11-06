@@ -73,7 +73,6 @@ export const app = {
   countdownText: null as string | null,
   countdownPrompt: null as (() => string) | null,
   tapHint: false,
-  toast: null as { text: () => string; until: number } | null,
   caption: null as { text: string; until: number } | null,
   touchSeen: false,
   awaySnap: null as GameSession | null,
@@ -90,10 +89,12 @@ const ended = (s: GameSession): boolean => (s.phase as string) === Phase.TERMINA
 export function announce(msg: string, assertive = false): void {
   if (msg) ui.announce(msg, { politeness: assertive ? "assertive" : "polite" });
 }
-/** A toast; `text` re-runs each frame so a visible toast follows a language change. */
-export function toast(text: () => string, seconds = 2.4): void {
-  app.toast = { text, until: now() + seconds };
-  announce(text());
+/** One toast at a time, below the HUD: offset is the old 70 px from the top − the stack's 16 px margin. */
+let shownToast: ui.Toast | null = null;
+export function toast(text: string, seconds = 2.4): void {
+  shownToast?.dismiss();
+  shownToast = ui.toast!(text, { duration: seconds, style: ["toast", "toast-text"], dismissible: false, announce: false, position: "top", offset: 54 });
+  announce(text);
 }
 function haptic(ms: number): void { if (settings.haptics) vibrate(ms); }
 audio.setOnCaption((key, vars) => { app.caption = { text: T(key, vars), until: now() + 1.2 }; });
@@ -104,7 +105,7 @@ export function showScreen(name: ScreenName | null): void {
   app.openedFrame = frame().frame;
   app.focusNext = !!name && name !== "countdown";
   // Gameplay guidance never lingers over a screen's text or actions.
-  if (name && name !== "countdown") { app.toast = null; app.caption = null; }
+  if (name && name !== "countdown") { shownToast?.dismiss(); shownToast = null; app.caption = null; }
   if (!name || name === "countdown") ui.setFocus(null);
 }
 export function dailyDone(): boolean { return !!progress().best[dailyContent(platform.now()).id]; }
@@ -258,7 +259,7 @@ function countdownTick(): void {
     app.countdownText = txt;
     const last = i === COUNTDOWN.length - 1;
     audio.event("countdown", { final: last });
-    announce(T(txt));
+    announce((last ? T(txt) : txt));
     if (last) goLeft = GO_HOLD;
   }
   countdownLeft--;
@@ -272,7 +273,7 @@ function startFlight(): void {
   app.tapHint = app.touchSeen && !cfg.lesson;
   if (cfg.lesson) {
     announce(T(cfg.lesson.prompt));
-    toast(() => T(cfg.lesson.prompt), 5);
+    toast(T(cfg.lesson.prompt), 5);
   }
 }
 export function flap(): void {
@@ -300,7 +301,7 @@ function onSessionEvents(events: render.RulesEvent[], state: State): void {
       case "invalid": {
         audio.event("invalid");
         const key = INVALID_TEXT[(e as { reason?: string }).reason ?? ""] || N("Not available right now.");
-        toast(() => T(key));
+        toast(T(key));
         announce(T(key), true);
         break;
       }
@@ -550,7 +551,7 @@ onStart(() => {
 });
 onPreferencesChange(() => applySettings());
 platform.onSettingsChange(() => applySettings());
-onSessionEnded(() => { toast(() => T("Signed out of StarHermit — progress stays on this device."), 4); });
+onSessionEnded(() => { toast(T("starhermit.signedOut"), 4); });
 onPlayerChange(() => undefined);
 onSuspend(() => {
   // Backgrounding pauses the round (with its snapshot) and surfaces the pause screen.
@@ -576,7 +577,6 @@ onUpdate((dt) => {
   applyLook();
   audio.update();
   const t0 = now();
-  if (app.toast && t0 > app.toast.until) app.toast = null;
   if (app.caption && t0 > app.caption.until) app.caption = null;
 });
 onRender((alpha) => {

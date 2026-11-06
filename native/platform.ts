@@ -8,7 +8,7 @@
 //   browser build wrote (the JS SDK's zipped save.json, its whole save
 //   document) shows as foreign and is merged in and replaced once;
 // - the paused round's safe snapshot (js/session.js) is the device's
-//   starhermit:storage, through a small localStorage-shaped shim;
+//   starhermit:storage, through the engine's localStorage;
 // - the game's own settings (colour palette, left-handed HUD, predicted arc,
 //   haptics) are `settings` (game.<key>, synced with the account); the
 //   browser build's settings keys are migrated and removed;
@@ -19,8 +19,8 @@
 //   submitScores did).
 import type { JsonValue } from "starhermit:engine";
 import { OffscreenCanvas } from "starhermit:canvas";
-import { avatar, connectGame, serverNow, serverTime, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile, sessions, type Leaderboard } from "starhermit:platform";
-import { saves, settings as store, storage } from "starhermit:storage";
+import { avatar, serverNow, serverTime, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile, type Leaderboard } from "starhermit:platform";
+import { saves, settings as store, localStorage as engineStorage } from "starhermit:storage";
 import * as M from "../js/migrate.js";
 
 export type Progress = ReturnType<typeof M.normalizeProgress>;
@@ -86,17 +86,7 @@ export function syncState(): "offline" | "saving" | "synced" | "error" {
 export function flush(): void { void saves.flush().catch(() => undefined); }
 
 /** js/session.js's safe snapshot store (the browser build's localStorage) on the device. */
-export const deviceStorage = {
-  getItem(key: string): string | null {
-    try { return storage.getText(key); } catch { return null; }
-  },
-  setItem(key: string, value: string): void {
-    try { storage.set(key, String(value)); } catch (e) { console.warn(`storage ${key}: ${String(e)}`); }
-  },
-  removeItem(key: string): void {
-    try { storage.remove(key); } catch { /* gone */ }
-  },
-};
+export const deviceStorage = engineStorage;
 
 // --- the game's settings -----------------------------------------------------------------
 export interface Settings { colorPalette: string; leftHanded: boolean; assistArc: boolean; haptics: boolean; [key: string]: unknown }
@@ -229,39 +219,6 @@ export async function fetchLeaderboard(friendsOnly: boolean, youLabel: (name: st
 
 /** Signed in only: post a finished ranked round's total through score-script.js; { posted, rank }. Never rejects. */
 export async function postLeaderboard(total: number): Promise<{ posted: boolean; rank: number | null }> {
-  const me = player();
-  if (!me) return { posted: false, rank: null };
-  const score = Math.max(0, Math.round(total));
-  let accepted: string[] = [];
-  try {
-    const sessionId = await sessions.practice();
-    accepted = await new Promise<string[]>((resolve) => {
-      const socket = connectGame(sessionId);
-      let done = false;
-      const finish = (list: string[]): void => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        socket.close();
-        resolve(list);
-      };
-      const timer = setTimeout(() => finish([]), 15000);
-      socket.on("open", () => { socket.sendCommand({ type: "result", scores: { "high-score": score } }); });
-      socket.on("game", (data) => {
-        const d = data as { type?: string; accepted?: string[] } | null;
-        if (d && d.type === "result-ack") finish(Array.isArray(d.accepted) ? d.accepted : []);
-      });
-      socket.on("error", () => finish([]));
-      socket.on("stopped", () => finish([]));
-      socket.on("abandoned", () => finish([]));
-    });
-  } catch { return { posted: false, rank: null }; }
-  if (!accepted.includes("high-score")) return { posted: false, rank: null };
-  try {
-    const b = await highScoreBoard();
-    if (!b) return { posted: true, rank: null };
-    const r = await leaderboards.entries(b.id, { pageSize: 100 });
-    const mine = r.items.find((e) => e.userId === me.userId);
-    return { posted: true, rank: mine ? mine.rank : null };
-  } catch { return { posted: true, rank: null }; }
+  const r = await leaderboards.submitScore("high-score", Math.max(0, Math.round(total)));
+  return { posted: r.accepted, rank: r.rank };
 }
