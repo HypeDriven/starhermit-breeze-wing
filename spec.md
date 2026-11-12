@@ -501,3 +501,11 @@ profile is guided by lesson prompts; ranked rounds post once.
 1. Separate Daily and Score Chase boards, or a "verified only" filter.
 2. A seed field on the Score Chase setup so shared seeds can be entered.
 3. Enforce `goalExtra.centeredPasses` for Perfect Line in the rules.
+
+<!-- regional-localization:start -->
+
+### Regional interface languages
+
+The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `da-DE`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `ru-FI`, `gl-ES`, `ru-EE`, `su-ID`, `lb-BE`, `co-FR`, `fur-IT`, `bew-ID`, `km-VN`.
+
+<!-- regional-localization:end -->

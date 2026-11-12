@@ -27,7 +27,7 @@ export function usedKeys() {
 }
 
 test('ships the nine StarHermit locales', () => {
-  assert.deepEqual(Object.keys(STRINGS).sort(), ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'].sort());
+  assert.deepEqual(Object.keys(STRINGS).sort(), ['en-US', 'es-419', 'de-DE', 'fr-FR', 'pt-BR', 'it-IT', 'en-GB', 'es-ES', 'fr-CA', 'fr-BE', 'de-BE', 'en-SG', 'en-HK', 'en-BQ', 'es-CO', 'de-IT', 'fr-IT', 'es-CL', 'es-AR', 'es-EC', 'ja-JP', 'nl-BE', 'zh-SG', 'ms-SG', 'ta-SG', 'zh-HK', 'yue-HK', 'nl-NL', 'fi-FI', 'sv-FI', 'et-EE', 'id-ID', 'de-BR', 'vi-VN', 'da-DE', 'eu-FR', 'ca-FR', 'oc-FR', 'sl-IT', 'ca-IT', 'oc-IT', 'ca-ES', 'eu-ES', 'ru-FI', 'gl-ES', 'ru-EE', 'su-ID', 'lb-BE', 'co-FR', 'fur-IT', 'bew-ID', 'km-VN'].sort());
 });
 
 test('found the keys in code', () => assert.ok(usedKeys().length > 150, String(usedKeys().length)));

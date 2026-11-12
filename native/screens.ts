@@ -1,3 +1,6 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM shell (index.html + js/ui.js + css/style.css) as
 // starhermit:ui, built every frame: the play HUD (objective and progress,
 // score and streak, flaps left, time left, Undo and Pause, mirrored for the
@@ -12,7 +15,21 @@
 // and short landscape (≤ 500 px tall: a smaller HUD, logo and emblem, no
 // results art). Panels taller than the room scroll, with their buttons
 // pinned below.
-import { clipboard, frame, openMenu } from "starhermit:engine";
+// The browser build's DOM shell (index.html + js/ui.js + css/style.css) as
+// starhermit:ui, built every frame: the play HUD (objective and progress,
+// score and streak, flaps left, time left, Undo and Pause, mirrored for the
+// left-handed layout), the tap pill, the countdown numeral and prompt, the
+// toast and the caption strip, and the screens (title with its emblem, the
+// mode setup with its facts and options, the Journey grid, pause, results
+// with the horizon art and the score breakdown, help with its rule cards,
+// settings, achievements, the leaderboards with their Global / Friends /
+// This device tabs, Welcome back). The browser's media queries are layouts
+// picked by the window's logical size: wide (≥ 1024 px: larger panels),
+// compact (≤ 700 px: panels become bottom sheets, the title stays a card)
+// and short landscape (≤ 500 px tall: a smaller HUD, logo and emblem, no
+// results art). Panels taller than the room scroll, with their buttons
+// pinned below.
+import { clipboard, frame } from "starhermit:engine";
 import { bindings } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -60,7 +77,7 @@ function button(b: Btn, width: number | null = null): void {
     const inner = width - 36;
     opts.content = () => { ui.paragraph(b.text, inner, { weight: "600", ...(style.includes("btn-big") ? { size: 20.8 } : {}) }); };
   }
-  if (ui.style(...style, s).id(b.id).button(b.text, opts)) { audio.event("ui"); b.act(); }
+  if (ui.style(...__l10nStyle(style), __l10nStyle(s)).id(b.id).button(b.text, opts)) { audio.event("ui"); b.act(); }
 }
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, align: "start" | "center" | "end" = "start", gap = 8): void {
@@ -73,7 +90,7 @@ function para(text: string, width: number, cls?: string | readonly string[] | nu
   if (!text) return;
   const styles: (string | ui.Style)[] = cls ? (typeof cls === "string" ? [cls] : [...cls]) : [];
   if (center) styles.push({ text: { align: "center" } });
-  let u = ui.style(...styles);
+  let u = ui.style(...__l10nStyle(styles));
   if (id) u = u.id(id);
   if (ui.measureText(text, { style: styles }).width / ui.preferences().scale <= width) u.label(text);
   else u.paragraph(text, width);
@@ -213,7 +230,7 @@ export function drawScreens(): void {
   if (app.tapHint && app.appState === "active" && !app.screen) {
     // A label, not a button: a tap on it reaches the sky (main.ts flaps on any press outside the HUD's buttons).
     ui.place("tap-hint", { anchor: "bottom", y: 20 }, () => {
-      ui.style("tap-hint").id("tap-hint").label(T("Tap anywhere to flap"));
+      ui.style(__l10nStyle("tap-hint")).id("tap-hint").label(T("Tap anywhere to flap"));
     });
   }
   if (app.caption) {
@@ -252,11 +269,11 @@ function hud(L: Layout): void {
   }, { spacing: 2, align: left ? "end" : "start" });
   // Score and streak.
   ui.place("hud-center", { anchor: "top", y: pad.y }, () => {
-    ui.style(...scoreCls).id("hud-score").label(String(st.score.total));
+    ui.style(...__l10nStyle(scoreCls)).id("hud-score").label(String(st.score.total));
     if (st.streak >= 2) {
       ui.row("hud-streak-row", () => {
         glyph("sparkle", 14, "#d94f2b");
-        ui.style("hud-streak").id("hud-streak").label(bare(T("✦ streak ×{n}", { n: st.streak })));
+        ui.style(__l10nStyle("hud-streak")).id("hud-streak").label(bare(T("✦ streak ×{n}", { n: st.streak })));
       }, { spacing: 4, align: "center" });
     }
   }, { align: "center", spacing: 0 });
@@ -264,14 +281,14 @@ function hud(L: Layout): void {
   ui.place("hud-actions", { anchor: left ? "top-start" : "top-end", x: pad.x, y: pad.y }, () => {
     if (moves !== null) para(T("Flaps left: {n}", { n: moves }), sideW, "hud-progress", "hud-moves");
     if (timeLeft !== null) {
-      ui.row("hud-time", () => { glyph("clock", 14, "#44566b"); ui.style("hud-progress").id("hud-time").label(timeLeft); }, { spacing: 4, align: "center" });
+      ui.row("hud-time", () => { glyph("clock", 14, "#44566b"); ui.style(__l10nStyle("hud-progress")).id("hud-time").label(timeLeft); }, { spacing: 4, align: "center" });
     }
     if (s.canUndo && app.appState === "active") {
-      if (ui.style("btn", "btn-ghost", "hud-btn").id("btn-undo").button(T("Undo"))) { undo(); ui.setFocus(null); }
+      if (ui.style(__l10nStyle("btn"), __l10nStyle("btn-ghost"), __l10nStyle("hud-btn")).id("btn-undo").button(T("Undo"))) { undo(); ui.setFocus(null); }
     }
     if (app.appState !== "paused") {
       const label = bare(T("❚❚ Pause"));
-      const clicked = ui.style("btn", "btn-ghost", "hud-btn").id("btn-pause").button(T("Pause game"), {
+      const clicked = ui.style(__l10nStyle("btn"), __l10nStyle("btn-ghost"), __l10nStyle("hud-btn")).id("btn-pause").button(T("Pause game"), {
         content: () => { ui.row("btn-pause-face", () => { glyph("pause", 14, "#1d2733"); ui.label(label, { weight: "600" }); }, { spacing: 6, align: "center" }); },
       });
       if (clicked) { pause(); }
@@ -317,7 +334,7 @@ function screen(key: string, L: Layout, maxW: number, body: (w: number) => void,
     }, { width: L.lw, height: L.lh, align: "center", justify: sheet ? "end" : "center" });
   }, { style: "screen", width: L.lw, height: L.lh });
 }
-function h2(text: string, id: string): void { ui.style("h2").id(id).heading(text); }
+function h2(text: string, id: string): void { ui.style(__l10nStyle("h2")).id(id).heading(text); }
 /** The `.row` of a panel's buttons (flex-wrap). */
 function actions(key: string, list: Btn[], w: number, align: "start" | "center" = "start"): void { flow(key, list, w, align); }
 
@@ -327,8 +344,8 @@ function titleScreen(L: Layout): void {
     emblemWidget(short ? 64 : 108);
     ui.row("title-logo", () => {
       const cls = short ? "game-logo-compact" : null;
-      ui.style("game-logo", cls).id("logo-1").label("Breeze");
-      ui.style("game-logo-accent", cls).id("logo-2").label("Wing");
+      ui.style(__l10nStyle("game-logo"), __l10nStyle(cls)).id("logo-1").label("Breeze");
+      ui.style(__l10nStyle("game-logo-accent"), __l10nStyle(cls)).id("logo-2").label("Wing");
     }, { spacing: short ? 9 : 13, align: "end" });
     para(T("Tap to fly. Thread the gates. Chase the horizon."), w, "tagline", "tagline", true);
     const playText = bare(T("▶ Play"));
@@ -474,12 +491,12 @@ function journeyScreen(L: Layout): void {
             const cleared = !!(rec && rec.cleared);
             const sub = cleared ? String(rec.bestScore) : T(st.name.replace("Mastery: ", "").replace(/ \d+$/, "")).split(" ")[0]!;
             const styles = ["jstage", ...(st.mastery ? ["jstage-mastery"] : []), ...(cleared ? ["jstage-done"] : []), ...(k === current ? ["jstage-current"] : [])];
-            const clicked = ui.style(...styles, { width: cell, height: cell }).id(`jstage-${k + 1}`).button(stageLabel(k), {
+            const clicked = ui.style(...__l10nStyle(styles), __l10nStyle({ width: cell, height: cell })).id(`jstage-${k + 1}`).button(stageLabel(k), {
               content: () => {
                 ui.column(`jstage-${k + 1}-face`, () => {
                   if (st.mastery) glyph("star", 18, "#1d2733");
                   else ui.label(String(k + 1), { weight: "700" });
-                  if (textWidth(sub, "jstage-sub") <= cell - 10) ui.style("jstage-sub").label(sub);
+                  if (textWidth(sub, "jstage-sub") <= cell - 10) ui.style(__l10nStyle("jstage-sub")).label(sub);
                 }, { align: "center", spacing: 1 });
               },
             });
@@ -496,7 +513,7 @@ function journeyScreen(L: Layout): void {
 function countdownScreen(L: Layout): void {
   const prompt = app.countdownPrompt ? app.countdownPrompt() : "";
   ui.place("countdown", { anchor: "top-start", x: 0, y: 0 }, () => {
-    if (app.countdownText) ui.style("countdown", L.shortLand ? "countdown-compact" : null).id("countdown-text").label(app.countdownText === "Go!" ? T(app.countdownText) : app.countdownText);
+    if (app.countdownText) ui.style(__l10nStyle("countdown"), __l10nStyle(L.shortLand ? "countdown-compact" : null)).id("countdown-text").label(app.countdownText === "Go!" ? T(app.countdownText) : app.countdownText);
     para(prompt, Math.min(L.lw - 32, 70 * 9), "countdown-prompt", "countdown-prompt", true);
   }, { width: L.lw, height: L.lh, align: "center", justify: "center", spacing: 8 });
 }
@@ -543,12 +560,12 @@ function resultsScreen(L: Layout): void {
     ui.grid("breakdown", () => {
       for (const [th, td, pts] of rows) {
         para(th, thW, "bd-th");
-        ui.style("bd-td").label(td);
-        ui.style("bd-pts").label(String(pts));
+        ui.style(__l10nStyle("bd-td")).label(td);
+        ui.style(__l10nStyle("bd-pts")).label(String(pts));
       }
-      ui.gridRow("bd-total-row").style("bd-total").label(T("Total"));
-      ui.style("bd-td").label("");
-      ui.style("bd-total", { text: { align: "end" } }).id("bd-total").label(String(s.score.total));
+      ui.gridRow("bd-total-row").style(__l10nStyle("bd-total")).label(T("Total"));
+      ui.style(__l10nStyle("bd-td")).label("");
+      ui.style(__l10nStyle("bd-total"), __l10nStyle({ text: { align: "end" } })).id("bd-total").label(String(s.score.total));
     }, { columns: [{ width: thW }, { width: midW }, { fr: 1, align: "end" }], gap: 0, width: w });
     if (res.earned.length) {
       ui.row("results-achievements", () => {
@@ -580,8 +597,8 @@ function keyChips(action: string): string[] {
 }
 function kbdRow(id: string, keys: string[], after: string, w: number): void {
   ui.row(id, () => {
-    for (const k of keys) ui.style("kbd").label(k);
-    if (after) ui.style("rule-p").label(after);
+    for (const k of keys) ui.style(__l10nStyle("kbd")).label(k);
+    if (after) ui.style(__l10nStyle("rule-p")).label(after);
   }, { spacing: 4, align: "center" });
   void w;
 }
@@ -613,7 +630,7 @@ function helpScreen(L: Layout): void {
       for (let i = 0; i < cards.length; i += cols) {
         ui.row(`rule-row-${i}`, () => {
           for (const c of cards.slice(i, i + cols)) {
-            ui.column(`rule-${c.id}`, () => { ui.style("rule-h3").heading(c.title); c.build(); }, { style: "rule-card", width: cw, spacing: 6 });
+            ui.column(`rule-${c.id}`, () => { ui.style(__l10nStyle("rule-h3")).heading(c.title); c.build(); }, { style: "rule-card", width: cw, spacing: 6 });
           }
         }, { spacing: gap, align: "stretch" });
       }
@@ -636,7 +653,7 @@ function settingsScreen(L: Layout): void {
       if (nextV !== cur) platform.setSetting(key, nextV);
     };
     const fieldset = (id: string, legend: string, build: () => void): void => {
-      ui.column(id, () => { ui.style("legend").label(legend); build(); }, { style: "fieldset", width: fw, spacing: 6 });
+      ui.column(id, () => { ui.style(__l10nStyle("legend")).label(legend); build(); }, { style: "fieldset", width: fw, spacing: 6 });
     };
     ui.row("settings-grid", () => {
       fieldset("fs-display", T("Display"), () => {
@@ -664,7 +681,7 @@ function settingsScreen(L: Layout): void {
     }
     // Sound, graphics, language, key bindings, text size, contrast and reduced motion are the runtime's Options.
     para(T("Sound, graphics, language, controls, text size, high contrast and reduced motion are in the StarHermit Options."), w, "blurb", "options-note");
-    button({ id: "btn-options", text: T("Open Options"), act: () => openMenu() }, Math.min(w, buttonWidth(T("Open Options"), PLAIN)));
+    button({ id: "btn-options", text: T("Open Options"), act: () => __l10nOptions() }, Math.min(w, buttonWidth(T("Open Options"), PLAIN)));
   }, (w) => {
     actions("settings-actions", [{ id: "btn-settings-back", text: T("Back"), style: ["btn", "btn-ghost"], act: closeOverlay }], w);
   });
@@ -680,7 +697,7 @@ function achievementsScreen(L: Layout): void {
         ui.column(`ach-${a.key}`, () => {
           ui.row(`ach-${a.key}-name`, () => {
             if (at) glyph("medal", 16, GOLD);
-            else ui.style("ach-name").label("○");
+            else ui.style(__l10nStyle("ach-name")).label("○");
             para(T(a.name), w - 60, "ach-name");
           }, { spacing: 6, align: "center" });
           para(T(a.desc), w - 32, "ach-desc");
@@ -709,7 +726,7 @@ function boardsScreen(L: Layout): void {
         ui.row(`board-${i}`, () => {
           para(`${i + 1}. ${e.name || T("Pilot")}`, w - sw - 12, cls);
           ui.spacer();
-          ui.style(cls, { text: { weight: "700" } }).label(String(e.score));
+          ui.style(__l10nStyle(cls), __l10nStyle({ text: { weight: "700" } })).label(String(e.score));
         }, { width: w, align: "center" });
       });
     }, { spacing: 0, width: w });
