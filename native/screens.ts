@@ -203,7 +203,7 @@ function firstLabel(name: ScreenName): string | null {
   }
 }
 
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   // A screen that just opened focuses its first control once its layout has settled.
   if (app.focusNext && app.screen && frame().frame - app.openedFrame >= 2) {
@@ -750,4 +750,11 @@ function awayScreen(L: Layout): void {
       { id: "btn-away-restart", text: T("Start over"), style: ["btn", "btn-ghost"], act: restartAway },
     ], w);
   });
+}
+
+export function drawScreens(): void {
+  if (app.screen !== "help") { drawScreensImmediate(); return; }
+  const actions = ["flap","pause","undo","restart","help"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }

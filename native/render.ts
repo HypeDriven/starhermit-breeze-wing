@@ -31,12 +31,9 @@
 //   are the page's own (three r160 units, engine.minor 28). The particles'
 //   soft dot is a DataTexture (sRGB, as the page's CanvasTexture).
 import {
-  ACESFilmicToneMapping, AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CircleGeometry, Color,
-  ConeGeometry, CylinderGeometry, DataTexture, DirectionalLight, FloatType, Fog, Group, HemisphereLight, Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator,
-  PerspectiveCamera, PlaneGeometry, ParticleEmitter, Points, PointsMaterial, RGBAFormat, ShaderMaterial, SphereGeometry, Sprite,
-  SRGBColorSpace, SpriteMaterial, Vector3, renderer, scene,
+  ACESFilmicToneMapping, AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DataTexture, DirectionalLight, FloatType, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RGBAFormat, ShaderMaterial, SphereGeometry, Sprite, SRGBColorSpace, SpriteMaterial, Vector3, renderer, scene,
 } from "starhermit:scene";
+import { GPUParticleEmitter } from "starhermit:particles";
 import type { Material, MaterialHooks, Texture } from "starhermit:scene";
 import { WORLD, gateGapY, currentGapHalf, currentSpeed, SIM_DT, createRng } from "../js/rules.js";
 import { THEMES } from "../js/content.js";
@@ -486,14 +483,14 @@ let fxSeed = 22222;
 /** The camera shake's jitter. */
 function fxRng(): number { return (fxSeed = (Math.imul(fxSeed || 22222, 1103515245) + 12345) & 0x7fffffff) / 0x7fffffff; }
 let poolSize = 120;
-const SPARKS = new Map<string, ParticleEmitter>();
+const SPARKS = new Map<string, GPUParticleEmitter>();
 const sparkMat = new PointsMaterial({ size: 0.34, map: dotTexture(), transparent: true, depthWrite: false, sizeAttenuation: true });
 const sparkGroup = new Group();
-function sparks(vy: number, spread: number, ttl: number): ParticleEmitter {
+function sparks(vy: number, spread: number, ttl: number): GPUParticleEmitter {
   const key = `${vy}/${spread}/${ttl}`;
   let e = SPARKS.get(key);
   if (!e) {
-    e = new ParticleEmitter({
+    e = new GPUParticleEmitter({
       capacity: 256, material: sparkMat, seed: SPARKS.size + 1, space: "local", life: ttl,
       velocity: [0, vy, 0], velocitySpread: [spread / 2, spread / 2, spread / 4], gravity: [0, -6, 0], opacity: [1, 0],
     });
