@@ -1,3 +1,4 @@
+import { showCursor } from "./cursor.ts";
 import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Breeze Wing on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
@@ -537,6 +538,7 @@ function applySettings(): void {
 
 let idle: { state: State } | null = null;
 onStart(() => {
+  showCursor();
   setFixedRate(TICKS_PER_SECOND);
   initStyles();
   platform.initPlatform();
