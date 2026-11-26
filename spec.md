@@ -14,7 +14,7 @@ points, but the middle of the gate is where streaks and scores are made.
 | Genre | One-button arcade flight (gravity + impulse lift, scrolling gates), solo |
 | Players | 1; asynchronous comparison through daily and score-chase leaderboards |
 | Session length | 20–90 s per round; a sitting is typically 3–10 rounds (5–15 min) |
-| Platforms | StarHermit engine script game (engine 1.47.0, host API 1.47): natively in the StarHermit client and in browsers through the engine's web runtime; landscape and portrait |
+| Platforms | StarHermit engine script game (engine 1.50.0, host API 1.50): natively in the StarHermit client and in browsers through the engine's web runtime; landscape and portrait |
 | Rendering | `starhermit:scene` (three.js-shaped) procedural 3D sky under a `starhermit:ui` shell; no image textures in the scene; post effects chosen by the runtime's graphics level (§13 Graphics) |
 | Simulation | The runtime's fixed 60 Hz steps, deterministic, seeded; rules run identically in the engine and Node |
 
@@ -22,7 +22,7 @@ points, but the middle of the gate is where streaks and scores are made.
 
 | Path | Role |
 |---|---|
-| `starhermit.txt` | Manifest: `launch=index.html`, `engine.entry=native/main.ts`, `engine.version=1.47.0`, `engine.minor=47`, capabilities `platform,storage,clipboard`, the five `control.*` actions with their gamepad defaults |
+| `starhermit.txt` | Manifest: `launch=index.html`, `engine.entry=native/main.ts`, `engine.version=1.50.0`, `engine.minor=50`, capabilities `platform,storage,clipboard`, the five `control.*` actions with their gamepad defaults |
 | `index.html`, `starhermit-files.json` | The engine's web loader and file index, written by `npm run package` (never edited by hand) |
 | `native/main.ts` | Entry module: app state machine, fixed-step round, countdown, flap / undo / pause, progression and achievements, safe snapshot, input routing, lifecycle |
 | `native/screens.ts` | Every screen and the HUD in `starhermit:ui` (immediate mode), layouts by window size, drawn glyphs, the title emblem and results horizon art |
@@ -512,9 +512,9 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 Cosmetic particle emitters use native GPU particles with automatic CPU fallback on devices or graphics tiers without GPU particle support.
 
-## Engine 1.47.0
+## Engine 1.50.0
 
-Browser play uses the WebGPU-only StarHermit 1.47.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.50.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
