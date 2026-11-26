@@ -170,6 +170,9 @@ const sea = new Mesh(new PlaneGeometry(420, 320).rotateX(-PI / 2), new ShaderMat
 sea.position.set(0, WORLD.floorY - 8, -100);
 sea.renderOrder = -5;
 sea.noAO = true;
+// The sky dome and sea never move (still scenery, host API 1.49 STATIC_SYNC).
+skyDome.movable = false;
+sea.movable = false;
 
 // --- the sun disc and its halo -----------------------------------------------------------
 let dotTex: DataTexture | null = null;

@@ -18,8 +18,8 @@ import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // hidden window and a slow frame never move the gates. The countdown and the
 // settle before results are counted in the same steps, so play scripts
 // replay exactly.
-import { frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
-import { onAction, onPointerButton, onTouch, vibrate } from "starhermit:input";
+import { frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onStart, onSuspend, onUpdate, preferences, setFixedRate, setTargetFps } from "starhermit:engine";
+import { onAction, onPointerButton, onTouch, primaryPointer, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onPlayerChange, onSessionEnded } from "starhermit:platform";
 import { Phase, TerminalReason, ActionType, TICKS_PER_SECOND } from "../js/rules.js";
@@ -574,10 +574,23 @@ onFixedUpdate(() => {
     if (finishLeft > 0 && --finishLeft === 0) finishRound();
   }
 });
+/** The game's frame cap (host API 1.49 setTargetFps, set only on a change): 30 on phone levels
+ * (levelIndex <= 3) under a finger, where steady 33 ms frames beat 33/50 ms jitter; none otherwise.
+ * The title keeps the display rate: it shows the live sky. The engine sets the cap aside while its
+ * menus are open, and the player's frame-rate limit still applies. */
+let frameCap = -1;
+function capFrames(): void {
+  const cap = frame().levelIndex <= 3 && primaryPointer() === "coarse" ? 30 : 0;
+  if (cap === frameCap) return;
+  frameCap = cap;
+  setTargetFps(cap || null);
+}
+
 let frameDt = 0;
 onUpdate((dt) => {
   frameDt = dt;
   applyLook();
+  capFrames();
   audio.update();
   const t0 = now();
   if (app.caption && t0 > app.caption.until) app.caption = null;
