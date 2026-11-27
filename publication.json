@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:00:58.558881+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T19:58:42.538623+00:00",
+    "coverArtUpdatedAt": "2026-11-27T07:58:05.270342+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T19:58:42.525277+00:00",
+      "deployedAt": "2026-11-27T07:58:03.781804+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.51.0",
+      "engineVersion": "1.52.0",
       "deployWarning": null
     },
     "description": "Tap to keep a bird aloft and fly through narrow gates, aiming for the center to build scoring streaks.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T19:58:42.781Z",
-  "sourceCommit": "84295dae639523d3b69fef837d7420c103679901",
-  "bytesReceived": 2544632,
-  "archiveSha256": "e7f73f6e8d778ff356d3cfca0cc6cee44831803efa047cc34bff22327d0af2ed",
+  "publishedAt": "2026-11-27T07:58:05.720Z",
+  "sourceCommit": "1c4377c62a65138423c5bcc03f674d4cf978834d",
+  "bytesReceived": 2544636,
+  "archiveSha256": "93bda7b5e18cf53746d7396052f15c22c22352cf02997b3700f3956fa14e47cb",
   "indexSha256": "179388d68dda7c3fdade3088e0cc903602aa45c42fe419fa9c991d13da154e29",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 2544632,
+    "bytesReceived": 2544636,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.51.0",
+    "engineVersion": "1.52.0",
     "deployWarning": null
   },
   "liveVerification": {
