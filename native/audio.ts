@@ -44,7 +44,6 @@ export function loadSfx(): void {
     loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
   }
   for (const [k, f, type, a, d] of NOTE_LIST) {
-    renderTone(f, type, a, d).then((c) => { notes.set(k, c); }, (e: unknown) => console.warn(`audio: ${String(e)}`));
   }
 }
 /** cb(captionKey, vars) for each captioned event (an English caption key, translated by the caller). */
@@ -141,7 +140,17 @@ export function setPaused(on: boolean): void {
 }
 
 /** Each frame once the mixer runs: the ambience once its clip is in, then the music's next steps by mixer time. */
+let __bedsStarted = false;
+function startBeds(): void {
+  if (__bedsStarted) return;
+  __bedsStarted = true;
+  void (async () => {
+      renderTone(f, type, a, d).then((c) => { notes.set(k, c); }, (e: unknown) => console.warn(`audio: ${String(e)}`));
+  })();
+}
+
 export function update(): void {
+  startBeds();
   if (context.state !== "running") return;
   try {
     if (ambienceKind && !ambience) {
